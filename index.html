@@ -307,7 +307,7 @@
             { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', narration:'Pada kondisi normal, user tetap tidur dan SMARTA memantau area kasur secara pasif.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
             { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Beam PIR terlihat menyapu area tidur dan KY-037 ikut memantau suara.', stage:'sensing', cam:{p:[3.6,3.0,5.6], t:[-0.8,1.35,0.35]}, dur:6000, settle:1300, act:'event' },
             { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', narration:'Event belum menjadi keputusan. Semua pembacaan dikirim ke ESP32 agar dapat dibandingkan dan diproses bersama.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'ESP32 menjadi pusat keputusan lokal: data sensor digabungkan sebelum alert dikirim keluar perangkat.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
+            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Perhatikan board hijau ESP32, pin header kuning, chip MCU hitam, dan tiga bar indikator yang menunjukkan proses keputusan.', stage:'processing', cam:{p:[-0.9,2.4,4.1], t:[-2.5,1.42,1.62]}, dur:6000, settle:1350, act:'esp32' },
             { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
             { id:9, title:'Demo Selesai', desc:'SMARTA menyajikan ringkasan monitoring sebagai laporan yang mudah dipahami.', narration:'Inilah hasil akhir demonstrasi: proses dari kejadian di kasur sampai laporan di smartphone.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
@@ -726,13 +726,38 @@
             smile.position.set(0, 0.26, 0.37);
             smartaDevice.add(smile);
 
-            var esp32 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.07, 0.4), new THREE.MeshStandardMaterial({ color: 0x047857, emissive: 0x047857, emissiveIntensity: 0.35 }));
-            esp32.position.y = 0;
-            smartaDevice.add(esp32);
-            var chip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.2), matMetal());
-            chip.position.set(0, 0.08, 0);
+            var espBoard = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.08, 0.44), new THREE.MeshStandardMaterial({ color: 0x047857, emissive: 0x047857, emissiveIntensity: 0.42, roughness: 0.52, metalness: 0.18 }));
+            espBoard.position.y = 0;
+            smartaDevice.add(espBoard);
+            smartaDevice.userData.espBoard = espBoard;
+            var pinMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xf59e0b, emissiveIntensity: 0.55, metalness: 0.8, roughness: 0.28 });
+            var headerPins = [];
+            [-0.31, 0.31].forEach(function(pinX) {
+                for (var pinIndex = 0; pinIndex < 5; pinIndex++) {
+                    var pin = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.095, 6), pinMat.clone());
+                    pin.position.set(pinX, 0.08, -0.18 + pinIndex * 0.09);
+                    smartaDevice.add(pin);
+                    headerPins.push(pin);
+                }
+            });
+            smartaDevice.userData.headerPins = headerPins;
+            var usbPort = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.08), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.25 }));
+            usbPort.position.set(0, 0.045, -0.28);
+            smartaDevice.add(usbPort);
+            smartaDevice.userData.usbPort = usbPort;
+            var chip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.2), new THREE.MeshStandardMaterial({ color: 0x111827, emissive: 0x10b981, emissiveIntensity: 0.48, metalness: 0.55, roughness: 0.35 }));
+            chip.position.set(0, 0.085, 0);
             smartaDevice.add(chip);
             smartaDevice.userData.chip = chip;
+            var boardLabel = createSensorLabel('ESP32 · CONTROLLER', '#34d399');
+            boardLabel.position.set(-0.82, 0.26, 0.34);
+            boardLabel.scale.set(0.68, 0.18, 1);
+            smartaDevice.add(boardLabel);
+            var chipLabel = createSensorLabel('MCU · PROCESSING', '#a7f3d0');
+            chipLabel.position.set(0.82, 0.12, 0.34);
+            chipLabel.scale.set(0.62, 0.16, 1);
+            smartaDevice.add(chipLabel);
+            smartaDevice.userData.espDetails = [boardLabel, chipLabel];
             for (var barIndex = 0; barIndex < 3; barIndex++) {
                 var processingBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.16), new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.18 }));
                 processingBar.position.set(-0.16 + barIndex * 0.16, 0.16, 0.03);
@@ -1193,12 +1218,13 @@
                 case 'esp32':
                     particles.forEach(function(p) { p.visible = true; p.userData.processing = true; });
                     processingBars.forEach(function(bar) { bar.material.opacity = 0.92; });
+                    if (smartaDevice.userData.espDetails) smartaDevice.userData.espDetails.forEach(function(detail) { detail.visible = true; });
                     if (pl) pl.material.emissiveIntensity = 0.82;
                     if (mc) mc.material.emissiveIntensity = 0.82;
                     if (ld) ld.material.emissiveIntensity = 0.82;
                     if (mlx) mlx.material.emissiveIntensity = 0.82;
                     if (screen) screen.material.emissiveIntensity = 1.15;
-                    showStatus('ESP32 menggabungkan empat pembacaan secara lokal', '#86efac');
+                    showStatus('ESP32 memproses empat pembacaan menjadi alert', '#86efac');
                     break;
                 case 'cloud':
                     particles.forEach(function(p) { p.visible = true; p.userData.cloud = true; p.userData.processing = false; });
@@ -1257,6 +1283,7 @@
                 if (ld) ld.material.emissiveIntensity = 0.38;
                 if (mlx) mlx.material.emissiveIntensity = 0.38;
                 if (screen) screen.material.emissiveIntensity = 0.42;
+                if (smartaDevice.userData.espDetails) smartaDevice.userData.espDetails.forEach(function(detail) { detail.visible = false; });
                 labels.forEach(function(label) { label.visible = false; });
                 leds.forEach(function(led, i) { led.material.opacity = i === 0 ? 0.42 : 0.18; });
                 particles.forEach(function(p) { p.userData.cloud = false; });
@@ -1392,6 +1419,8 @@
                 if (pl) { pl.scale.setScalar(1 + (sensorPulse - 0.38) * 0.08); pl.material.emissiveIntensity = sensorPulse; }
                 if (mc) { mc.scale.setScalar(1 + (micPulse - 0.38) * 0.08); mc.material.emissiveIntensity = micPulse; }
                 if (ld) { ld.scale.setScalar(1 + (ldrPulse - 0.38) * 0.08); ld.material.emissiveIntensity = ldrPulse; }
+                if (smartaDevice.userData.espBoard) smartaDevice.userData.espBoard.material.emissiveIntensity = activeAction === 'esp32' ? 0.45 + (Math.sin(time * 3.2) * 0.5 + 0.5) * 0.42 : 0.42;
+                if (smartaDevice.userData.headerPins) smartaDevice.userData.headerPins.forEach(function(pin, pinIndex) { pin.material.emissiveIntensity = activeAction === 'esp32' ? 0.55 + (Math.sin(time * 4.1 + pinIndex * 0.32) * 0.5 + 0.5) * 0.55 : 0.55; });
                 if (mlx) { mlx.scale.setScalar(1 + (tempPulse - 0.38) * 0.08); mlx.material.emissiveIntensity = tempPulse; }
                 if (screen && activeAction !== 'esp32' && activeAction !== 'cloud' && activeAction !== 'report' && activeAction !== 'meet') screen.material.emissiveIntensity = 0.42;
                 if (leds.length) {
