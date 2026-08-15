@@ -57,6 +57,24 @@
         #process-rail .process-step.active .step-dot { border-color: #a5b4fc; background: #4f46e5; color: #fff; box-shadow: 0 0 18px rgba(99,102,241,0.72); transform: scale(1.12); }
         #process-rail .process-step.done { color: #94a3b8; }
         #process-rail .process-step.done .step-dot { border-color: #34d399; background: #064e3b; color: #a7f3d0; }
+        #flow-live {
+            position: fixed;
+            top: 151px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: rgba(8,13,29,0.56);
+            border: 1px solid rgba(129,140,248,0.25);
+            color: #cbd5e1;
+            font-size: 0.72rem;
+            letter-spacing: 0.035em;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            transition: opacity 0.35s, transform 0.35s;
+        }
+        #flow-live strong { color: #a5b4fc; font-weight: 700; }
         #tooltip {
             position: fixed;
             z-index: 200;
@@ -181,6 +199,7 @@
             #process-rail .process-step { min-width: 42px; font-size: 0.52rem; }
             #process-rail .process-step:nth-child(2) { display: none; }
             #process-rail .rail-track, #process-rail .rail-progress { top: 22px; }
+            #flow-live { top: 128px; max-width: calc(100vw - 30px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             #scene-info { left: 12px; bottom: 78px; max-width: 245px; }
         }
 
@@ -212,7 +231,7 @@
         <h1>💤 SLEEP ALERT - SMARTA</h1>
         <div id="hint">🎬 Kamera mengikuti storyline otomatis · Klik objek untuk detail</div>
     </div>
-    <div id="process-rail" aria-label="Alur proses SMARTA">
+        <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
         <div class="rail-steps">
             <div class="process-step active" data-stage="setup"><span class="step-dot">1</span><span>Setup</span></div>
@@ -222,6 +241,7 @@
             <div class="process-step" data-stage="complete"><span class="step-dot">5</span><span>Report</span></div>
         </div>
     </div>
+    <div id="flow-live" aria-live="polite"><strong>START</strong> · SMARTA siap membaca kamar</div>
     <div id="tooltip"></div>
     <div id="status">Kamar siap — klik benda untuk interaksi</div>
 
@@ -279,7 +299,7 @@
             { id:3, title:'User Falls Asleep', desc:'Napas melambat. Monitoring dimulai saat kamar tenang.', stage:'sensing', cam:{p:[2.65,1.92,3.25], t:[0.05,1.33,-0.35]}, dur:5800, settle:1350, act:'person' },
             { id:4, title:'PIR Motion Detection', desc:'PIR mengunci gerakan kecil pada dada dan bahu.', stage:'sensing', cam:{p:[-2.8,1.8,2.7], t:[-0.85,1.36,0.55]}, dur:6200, settle:1450, act:'pir' },
             { id:5, title:'Sound Monitoring', desc:'Gelombang suara bergerak dari kepala menuju mic.', stage:'sensing', cam:{p:[-5.0,1.9,3.2], t:[-2.3,1.48,1.35]}, dur:6200, settle:1450, act:'mic' },
-            { id:6, title:'ESP32 Processing', desc:'Data diringkas secara lokal sebelum dikirim.', stage:'processing', cam:{p:[-5.3,2.0,3.2], t:[-2.82,1.56,1.6]}, dur:5800, settle:1350, act:'esp32' },
+            { id:6, title:'ESP32 Processing', desc:'Data diringkas secara lokal sebelum dikirim.', stage:'processing', cam:{p:[-4.9,2.65,4.1], t:[-2.45,1.56,1.45]}, dur:5800, settle:1350, act:'esp32' },
             { id:7, title:'Cloud Transmission', desc:'Paket data naik melalui WiFi menuju server aman.', stage:'uploading', cam:{p:[-0.1,2.8,4.8], t:[-1.05,1.9,0.85]}, dur:6200, settle:1600, act:'cloud' },
             { id:8, title:'Sleep Analysis Complete', desc:'Ringkasan tidur tampil setelah semua data selesai diproses.', stage:'complete', cam:{p:[0.75,3.15,7.55], t:[0,1.32,0]}, dur:7200, settle:1700, act:'stats' }
         ];
@@ -325,7 +345,7 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-            // OrbitControls (kamera) — drag rotate, scroll zoom
+            // OrbitControls dipertahankan hanya sebagai target/damping helper; input user sepenuhnya nonaktif.
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.08;
@@ -745,20 +765,27 @@
             smartaDevice.rotation.y = Math.atan2(0 - (-2.8), 0 - 1.6);
             scene.add(smartaDevice);
 
-            // Anchor visual untuk transmisi cloud: target jelas, tenang, dan tidak mengambil alih frame.
+            // Data hub kontekstual: bukan planet, tetapi endpoint server yang menerima packet SMARTA.
             cloudNode = new THREE.Group();
-            var cloudCore = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.82 }));
-            var cloudRing = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.018, 8, 28), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55 }));
-            cloudRing.rotation.x = Math.PI / 2;
-            cloudNode.add(cloudCore);
-            cloudNode.add(cloudRing);
+            var hubFrame = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.62, 0.12), new THREE.MeshBasicMaterial({ color: 0x172554, transparent: true, opacity: 0.9 }));
+            var hubPlate = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.12, 0.04), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.82 }));
+            hubPlate.position.z = 0.08;
+            cloudNode.add(hubFrame);
+            cloudNode.add(hubPlate);
+            var hubBars = [];
+            for (var hubIndex = 0; hubIndex < 3; hubIndex++) {
+                var hubBar = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.06, 0.04), new THREE.MeshBasicMaterial({ color: hubIndex === 2 ? 0x34d399 : 0x818cf8, transparent: true, opacity: 0.75 }));
+                hubBar.position.set(-0.32 + hubIndex * 0.32, -0.15, 0.08);
+                cloudNode.add(hubBar);
+                hubBars.push(hubBar);
+            }
+            cloudNode.userData.hubBars = hubBars;
             cloudNode.position.set(-0.2, 3.35, -0.15);
             cloudNode.visible = false;
             scene.add(cloudNode);
 
-            addInteractable(smartaDevice, 'SMARTA Device', 'IoT: ESP32 + PIR + Mic. Klik untuk fokus.', function() {
-                controls.target.set(-2.8, 1.58, 1.6);
-                showStatus('🔍 Fokus ke SMARTA device', '#818cf8');
+            addInteractable(smartaDevice, 'SMARTA Device', 'IoT: ESP32 + PIR + Mic. Klik untuk detail.', function() {
+                showStatus('🔍 SMARTA membaca PIR, mic, dan status tidur', '#818cf8');
             });
         }
 
@@ -767,7 +794,7 @@
                 var isPir = i < 15;
                 var p = new THREE.Mesh(
                     new THREE.SphereGeometry(0.045, 8, 8),
-                    new THREE.MeshBasicMaterial({ color: isPir ? 0x667eea : 0xec4899, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending })
+                    new THREE.MeshBasicMaterial({ color: isPir ? 0x667eea : 0xec4899, transparent: true, opacity: 0.9, blending: THREE.NormalBlending })
                 );
                 // Aliran data: person → device (hasil sensing dikirim ke SMARTA, bukan sebaliknya)
                 p.userData = {
@@ -850,6 +877,23 @@
             document.getElementById('scene-title').textContent = scene.title;
             document.getElementById('scene-desc').textContent = scene.desc;
             setProcessStage(scene.stage || 'setup');
+            var flowCopy = {
+                setup: '<strong>START</strong> · SMARTA siap membaca kamar',
+                sensing: '<strong>SENSING</strong> · PIR + MIC → SMARTA',
+                processing: '<strong>PROCESSING</strong> · ESP32 merangkum sinyal',
+                uploading: '<strong>UPLOAD</strong> · packet → WiFi → server',
+                complete: '<strong>REPORT</strong> · ringkasan tidur siap'
+            };
+            var flowLive = document.getElementById('flow-live');
+            if (flowLive) {
+                flowLive.innerHTML = flowCopy[scene.stage || 'setup'];
+                flowLive.style.opacity = '0';
+                flowLive.style.transform = 'translateX(-50%) translateY(-4px)';
+                setTimeout(function() {
+                    flowLive.style.opacity = '1';
+                    flowLive.style.transform = 'translateX(-50%) translateY(0)';
+                }, 40);
+            }
             // Fade halus setiap ganti scene
             var si = document.getElementById('scene-info');
             si.style.opacity = '0';
@@ -886,7 +930,7 @@
                 startTarget: controls.target.clone(),
                 endPos: endPos,
                 endTarget: new THREE.Vector3(target[0], target[1], target[2]),
-                arc: arcHeight === undefined ? Math.min(0.7, 0.16 + distance * 0.045) : arcHeight,
+                arc: arcHeight === undefined ? Math.min(0.32, 0.08 + distance * 0.02) : arcHeight,
                 t0: clock.getElapsedTime(),
                 dur: prefersReducedMotion ? 0.01 : ((dur || 2000) / 1000)
             };
@@ -894,6 +938,10 @@
 
         function easeInOutCubic(t) {
             return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function easeInOutSine(t) {
+            return -(Math.cos(Math.PI * t) - 1) / 2;
         }
 
         function easeOutQuint(t) {
@@ -1081,12 +1129,11 @@
             // Camera choreography: easing + arc vertikal kecil, tanpa akumulasi posisi.
             if (camAnim) {
                 var t = Math.min((time - camAnim.t0) / camAnim.dur, 1);
-                var e = easeInOutCubic(t);
+                var e = easeInOutSine(t);
                 var nextCameraPos = new THREE.Vector3().lerpVectors(camAnim.startPos, camAnim.endPos, e);
                 nextCameraPos.y += Math.sin(t * Math.PI) * camAnim.arc;
                 camera.position.copy(nextCameraPos);
-                var targetE = easeOutQuint(t);
-                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, targetE);
+                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, e);
                 camera.lookAt(controls.target);
                 if (t >= 1) camAnim = null;
             }
@@ -1114,16 +1161,30 @@
                     smartaDevice.userData.beam.material.opacity = activeAction === 'pir' ? 0.09 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.04;
                 }
                 if (cloudNode && cloudNode.visible) {
-                    cloudNode.rotation.z = Math.sin(time * 0.65) * 0.08;
-                    cloudNode.scale.setScalar(0.94 + (Math.sin(time * 1.45) * 0.5 + 0.5) * 0.1);
+                    cloudNode.position.y = 3.35 + Math.sin(time * 0.8) * 0.025;
+                    var hubBars = cloudNode.userData.hubBars || [];
+                    hubBars.forEach(function(bar, i) {
+                        var hubPulse = Math.sin(time * 2.4 - i * 0.65) * 0.5 + 0.5;
+                        bar.scale.x = 0.86 + hubPulse * 0.3;
+                        bar.material.opacity = processStage === 'uploading' ? 0.52 + hubPulse * 0.36 : 0.42;
+                    });
                 }
                 if (sensorLink && person && person.userData.torso && smartaDevice.userData.pirLens) {
                     var sensorStart = new THREE.Vector3();
                     var sensorEnd = new THREE.Vector3();
-                    person.userData.torso.getWorldPosition(sensorStart);
-                    smartaDevice.userData.pirLens.getWorldPosition(sensorEnd);
+                    if (processStage === 'processing' && smartaDevice.userData.chip) {
+                        person.userData.torso.getWorldPosition(sensorStart);
+                        smartaDevice.userData.chip.getWorldPosition(sensorEnd);
+                    } else if (activeAction === 'mic' && smartaDevice.userData.mic) {
+                        person.userData.head.getWorldPosition(sensorStart);
+                        smartaDevice.userData.mic.getWorldPosition(sensorEnd);
+                    } else {
+                        person.userData.torso.getWorldPosition(sensorStart);
+                        smartaDevice.userData.pirLens.getWorldPosition(sensorEnd);
+                    }
                     sensorLink.geometry.setFromPoints([sensorStart, sensorEnd]);
-                    sensorLink.material.opacity = processStage === 'sensing' ? 0.16 + (Math.sin(time * 2.2) * 0.5 + 0.5) * 0.18 : 0.08;
+                    sensorLink.material.color.set(processStage === 'processing' ? 0x34d399 : activeAction === 'mic' ? 0xec4899 : 0x818cf8);
+                    sensorLink.material.opacity = processStage === 'sensing' ? 0.36 + (Math.sin(time * 2.2) * 0.5 + 0.5) * 0.22 : processStage === 'processing' ? 0.34 : 0.14;
                 }
                 if (uploadLink && cloudNode && smartaDevice) {
                     var uploadStart = new THREE.Vector3();
@@ -1131,7 +1192,8 @@
                     smartaDevice.getWorldPosition(uploadStart);
                     cloudNode.getWorldPosition(uploadEnd);
                     uploadLink.geometry.setFromPoints([uploadStart, uploadEnd]);
-                    uploadLink.material.opacity = processStage === 'uploading' ? 0.16 + (Math.sin(time * 2.6) * 0.5 + 0.5) * 0.24 : 0.08;
+                    uploadLink.material.color.set(processStage === 'uploading' ? 0x38bdf8 : 0x334155);
+                    uploadLink.material.opacity = processStage === 'uploading' ? 0.38 + (Math.sin(time * 2.6) * 0.5 + 0.5) * 0.22 : 0.1;
                 }
                 processingBars.forEach(function(bar, i) {
                     var wave = Math.sin(time * 4.2 - i * 0.9) * 0.5 + 0.5;
@@ -1183,7 +1245,8 @@
                 var sway = Math.sin(e * Math.PI);
                 p.position.x += Math.sin(time * 1.8 + ud.wobble) * (ud.cloud ? 0.035 : 0.025) * sway;
                 p.position.y += Math.cos(time * 1.5 + ud.wobble) * (ud.cloud ? 0.04 : 0.025) * sway;
-                p.material.opacity = (ud.cloud ? 0.86 : ud.processing ? 0.92 : 0.82) * sway;
+                p.material.color.setHex(ud.cloud ? 0x38bdf8 : ud.processing ? 0x34d399 : ud.type === 'PIR' ? 0x818cf8 : 0xec4899);
+                p.material.opacity = (ud.cloud ? 0.92 : ud.processing ? 0.98 : 0.86) * sway;
             });
 
             renderer.render(scene, camera);
