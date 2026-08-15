@@ -34,6 +34,29 @@
             margin-bottom: 6px;
         }
         #hint { color: #94a3b8; font-size: 0.85rem; }
+        #process-rail {
+            position: fixed;
+            top: 98px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            width: min(720px, calc(100vw - 36px));
+            padding: 10px 14px 9px;
+            border: 1px solid rgba(148,163,184,0.18);
+            border-radius: 16px;
+            background: rgba(8,13,29,0.62);
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+        }
+        #process-rail .rail-track { position: absolute; left: 9%; right: 9%; top: 24px; height: 2px; background: rgba(148,163,184,0.25); }
+        #process-rail .rail-progress { position: absolute; left: 9%; top: 24px; height: 2px; width: 0%; background: linear-gradient(90deg,#818cf8,#22d3ee,#34d399); transition: width 0.55s cubic-bezier(0.23,1,0.32,1); }
+        #process-rail .rail-steps { position: relative; display: flex; justify-content: space-between; gap: 8px; }
+        #process-rail .process-step { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 64px; color: #64748b; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.35s ease; }
+        #process-rail .step-dot { width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(148,163,184,0.32); background: #111827; color: #94a3b8; font-size: 0.62rem; font-weight: 700; transition: all 0.35s ease; }
+        #process-rail .process-step.active { color: #e0e7ff; }
+        #process-rail .process-step.active .step-dot { border-color: #a5b4fc; background: #4f46e5; color: #fff; box-shadow: 0 0 18px rgba(99,102,241,0.72); transform: scale(1.12); }
+        #process-rail .process-step.done { color: #94a3b8; }
+        #process-rail .process-step.done .step-dot { border-color: #34d399; background: #064e3b; color: #a7f3d0; }
         #tooltip {
             position: fixed;
             z-index: 200;
@@ -150,6 +173,16 @@
         }
         #controls button:hover { background: rgba(102,126,234,0.3); transform: translateY(-2px); }
         #controls button:active { transform: translateY(0); }
+        @media (max-width: 720px) {
+            #info { top: 12px; padding: 10px 15px; }
+            #info h1 { font-size: 1.18rem; }
+            #hint { font-size: 0.7rem; }
+            #process-rail { top: 78px; padding-inline: 7px; }
+            #process-rail .process-step { min-width: 42px; font-size: 0.52rem; }
+            #process-rail .process-step:nth-child(2) { display: none; }
+            #process-rail .rail-track, #process-rail .rail-progress { top: 22px; }
+            #scene-info { left: 12px; bottom: 78px; max-width: 245px; }
+        }
 
         #stats-overlay {
             position: fixed;
@@ -177,7 +210,17 @@
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
     <div id="info">
         <h1>💤 SLEEP ALERT - SMARTA</h1>
-        <div id="hint">🖱️ Drag untuk putar kamera · Scroll untuk zoom · Klik benda untuk interaksi</div>
+        <div id="hint">🖱️ Drag di area kamar untuk orbit · Scroll untuk zoom · Klik objek untuk detail</div>
+    </div>
+    <div id="process-rail" aria-label="Alur proses SMARTA">
+        <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
+        <div class="rail-steps">
+            <div class="process-step active" data-stage="setup"><span class="step-dot">1</span><span>Setup</span></div>
+            <div class="process-step" data-stage="sensing"><span class="step-dot">2</span><span>Sensing</span></div>
+            <div class="process-step" data-stage="processing"><span class="step-dot">3</span><span>ESP32</span></div>
+            <div class="process-step" data-stage="uploading"><span class="step-dot">4</span><span>WiFi</span></div>
+            <div class="process-step" data-stage="complete"><span class="step-dot">5</span><span>Report</span></div>
+        </div>
     </div>
     <div id="tooltip"></div>
     <div id="status">Kamar siap — klik benda untuk interaksi</div>
@@ -209,8 +252,11 @@
     <script>
         // ===== GLOBAL STATE =====
         var scene, camera, renderer, controls, raycaster, pointer;
-        var smartaDevice, bed, person, nightstand, cloudNode;
-        var particles = [], interactables = [];
+        var smartaDevice, bed, person, nightstand, cloudNode, sensorLink, uploadLink;
+        var particles = [], interactables = [], processingBars = [];
+        var processStage = 'setup';
+        var pointerGesture = { active: false, moved: false, x: 0, y: 0, pointerId: null };
+        var orbitDrag = { radius: 9, azimuth: 0.42, polar: 1.12, startAzimuth: 0.42, startPolar: 1.12 };
         var clock = new THREE.Clock();
         var tooltip = document.getElementById('tooltip');
         var statusEl = document.getElementById('status');
@@ -229,14 +275,14 @@
         var smartaBaseY = 1.56;
 
         var storyScenes = [
-            { id:1, title:'Meet SMARTA', desc:'ESP32, PIR, dan mic bekerja dalam satu perangkat kecil.', cam:{p:[-4.1,2.05,3.05], t:[-2.8,1.54,1.6]}, dur:5600, settle:1500, act:'meet' },
-            { id:2, title:'Bedroom Setup', desc:'SMARTA ditempatkan di nakas, menghadap area tidur.', cam:{p:[3.8,3.45,7.8], t:[0,1.18,0]}, dur:5200, settle:1250, act:'wide' },
-            { id:3, title:'User Falls Asleep', desc:'Napas melambat. Monitoring dimulai saat kamar tenang.', cam:{p:[2.65,1.92,3.25], t:[0.05,1.33,-0.35]}, dur:5800, settle:1350, act:'person' },
-            { id:4, title:'PIR Motion Detection', desc:'PIR mengunci gerakan kecil pada dada dan bahu.', cam:{p:[-1.1,1.72,2.65], t:[-0.55,1.34,0.08]}, dur:6200, settle:1450, act:'pir' },
-            { id:5, title:'Sound Monitoring', desc:'Gelombang suara bergerak dari kepala menuju mic.', cam:{p:[-3.65,1.85,3.05], t:[-1.2,1.42,0.72]}, dur:6200, settle:1450, act:'mic' },
-            { id:6, title:'ESP32 Processing', desc:'Data diringkas secara lokal sebelum dikirim.', cam:{p:[-2.55,1.78,2.35], t:[-2.7,1.55,1.6]}, dur:5800, settle:1350, act:'esp32' },
-            { id:7, title:'Cloud Transmission', desc:'Paket data naik melalui WiFi menuju server aman.', cam:{p:[0.65,3.75,6.7], t:[-0.25,1.82,0.7]}, dur:6200, settle:1600, act:'cloud' },
-            { id:8, title:'Sleep Analysis Complete', desc:'Ringkasan tidur tampil setelah semua data selesai diproses.', cam:{p:[0.75,3.15,7.55], t:[0,1.32,0]}, dur:7200, settle:1700, act:'stats' }
+            { id:1, title:'Meet SMARTA', desc:'ESP32, PIR, dan mic bekerja dalam satu perangkat kecil.', stage:'setup', cam:{p:[-4.1,2.05,3.05], t:[-2.8,1.54,1.6]}, dur:5600, settle:1500, act:'meet' },
+            { id:2, title:'Bedroom Setup', desc:'SMARTA ditempatkan di nakas, menghadap area tidur.', stage:'setup', cam:{p:[3.8,3.45,7.8], t:[0,1.18,0]}, dur:5200, settle:1250, act:'wide' },
+            { id:3, title:'User Falls Asleep', desc:'Napas melambat. Monitoring dimulai saat kamar tenang.', stage:'sensing', cam:{p:[2.65,1.92,3.25], t:[0.05,1.33,-0.35]}, dur:5800, settle:1350, act:'person' },
+            { id:4, title:'PIR Motion Detection', desc:'PIR mengunci gerakan kecil pada dada dan bahu.', stage:'sensing', cam:{p:[-2.8,1.8,2.7], t:[-0.85,1.36,0.55]}, dur:6200, settle:1450, act:'pir' },
+            { id:5, title:'Sound Monitoring', desc:'Gelombang suara bergerak dari kepala menuju mic.', stage:'sensing', cam:{p:[-5.0,1.9,3.2], t:[-2.3,1.48,1.35]}, dur:6200, settle:1450, act:'mic' },
+            { id:6, title:'ESP32 Processing', desc:'Data diringkas secara lokal sebelum dikirim.', stage:'processing', cam:{p:[-5.3,2.0,3.2], t:[-2.82,1.56,1.6]}, dur:5800, settle:1350, act:'esp32' },
+            { id:7, title:'Cloud Transmission', desc:'Paket data naik melalui WiFi menuju server aman.', stage:'uploading', cam:{p:[-0.1,2.8,4.8], t:[-1.05,1.9,0.85]}, dur:6200, settle:1600, act:'cloud' },
+            { id:8, title:'Sleep Analysis Complete', desc:'Ringkasan tidur tampil setelah semua data selesai diproses.', stage:'complete', cam:{p:[0.75,3.15,7.55], t:[0,1.32,0]}, dur:7200, settle:1700, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -284,11 +330,18 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.08;
+            controls.enableRotate = false;
+            controls.enablePan = false;
             controls.minDistance = 2.5;
             controls.maxDistance = 18;
             controls.maxPolarAngle = Math.PI * 0.55;
             controls.target.set(0, 1.5, 0);
             controls.update();
+            renderer.domElement.style.touchAction = 'none';
+            renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown, { passive: true });
+            renderer.domElement.addEventListener('pointermove', onPointerMove, { passive: true });
+            window.addEventListener('pointerup', onCanvasPointerUp, { passive: true });
+            window.addEventListener('pointercancel', onCanvasPointerCancel, { passive: true });
 
             raycaster = new THREE.Raycaster();
             pointer = new THREE.Vector2();
@@ -323,8 +376,6 @@
             startStory();
 
             window.addEventListener('resize', onResize);
-            window.addEventListener('pointermove', onPointerMove);
-            window.addEventListener('click', onPointerClick);
 
             setTimeout(function() {
                 document.getElementById('loading').classList.add('hidden');
@@ -622,6 +673,13 @@
             var chip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.2), matMetal());
             chip.position.set(0, 0.08, 0);
             smartaDevice.add(chip);
+            smartaDevice.userData.chip = chip;
+            for (var barIndex = 0; barIndex < 3; barIndex++) {
+                var processingBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.16), new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.18 }));
+                processingBar.position.set(-0.16 + barIndex * 0.16, 0.16, 0.03);
+                smartaDevice.add(processingBar);
+                processingBars.push(processingBar);
+            }
 
             var pirLens = new THREE.Mesh(
                 new THREE.SphereGeometry(0.13, 16, 16),
@@ -652,7 +710,7 @@
 
             // Scanning beam (PIR ke arah kasur)
             var beamGeo = new THREE.ConeGeometry(0.58, 2.9, 24, 1, true);
-            var beamMat = new THREE.MeshBasicMaterial({ color: 0x8b9cff, transparent: true, opacity: 0.075, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+            var beamMat = new THREE.MeshBasicMaterial({ color: 0x7785ff, transparent: true, opacity: 0.035, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
             beam.position.set(-0.22, -0.15, 1.7);
             beam.rotation.x = Math.PI / 2;
@@ -673,8 +731,17 @@
             }
             smartaDevice.userData.soundWaves = soundWaves;
 
+            // Jalur proses tetap: sensing masuk ke SMARTA, lalu hasil naik ke cloud.
+            sensorLink = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x7c83e8, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending }));
+            uploadLink = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending }));
+            sensorLink.visible = false;
+            uploadLink.visible = false;
+            scene.add(sensorLink);
+            scene.add(uploadLink);
+
             // Posisi SMARTA di ATAS meja (permukaan y=1.08 + setengah casing 0.475 → y ≈ 1.56)
             smartaDevice.position.set(-2.8, 1.56, 1.6);
+            smartaDevice.scale.setScalar(1.22);
             // Hadap kasur: local +Z diputar menuju bed center (0,0).
             smartaDevice.rotation.y = Math.atan2(0 - (-2.8), 0 - 1.6);
             scene.add(smartaDevice);
@@ -686,7 +753,7 @@
             cloudRing.rotation.x = Math.PI / 2;
             cloudNode.add(cloudCore);
             cloudNode.add(cloudRing);
-            cloudNode.position.set(-0.2, 4.35, -0.15);
+            cloudNode.position.set(-0.2, 3.35, -0.15);
             cloudNode.visible = false;
             scene.add(cloudNode);
 
@@ -716,7 +783,52 @@
             }
         }
 
+        function beginOrbitDrag() {
+            var offset = camera.position.clone().sub(controls.target);
+            orbitDrag.radius = Math.max(controls.minDistance, Math.min(controls.maxDistance, offset.length()));
+            orbitDrag.azimuth = Math.atan2(offset.x, offset.z);
+            orbitDrag.polar = Math.acos(THREE.MathUtils.clamp(offset.y / orbitDrag.radius, 0.18, 0.98));
+            orbitDrag.startAzimuth = orbitDrag.azimuth;
+            orbitDrag.startPolar = orbitDrag.polar;
+            camAnim = null;
+        }
+
+        function applyOrbitDrag(e) {
+            var dx = (e.clientX - pointerGesture.x) * 0.008;
+            var dy = (e.clientY - pointerGesture.y) * 0.006;
+            var polar = THREE.MathUtils.clamp(orbitDrag.startPolar + dy, 0.2, Math.PI * 0.54);
+            var azimuth = orbitDrag.startAzimuth - dx;
+            var sinPolar = Math.sin(polar);
+            camera.position.set(
+                controls.target.x + orbitDrag.radius * sinPolar * Math.sin(azimuth),
+                controls.target.y + orbitDrag.radius * Math.cos(polar),
+                controls.target.z + orbitDrag.radius * sinPolar * Math.cos(azimuth)
+            );
+            camera.lookAt(controls.target);
+            controls.update();
+        }
+
+        function onCanvasPointerDown(e) {
+            beginOrbitDrag();
+            pointerGesture.active = true;
+            pointerGesture.moved = false;
+            pointerGesture.x = e.clientX;
+            pointerGesture.y = e.clientY;
+            pointerGesture.pointerId = e.pointerId;
+            tooltip.style.display = 'none';
+            document.body.style.cursor = 'grabbing';
+        }
+
         function onPointerMove(e) {
+            if (pointerGesture.active) {
+                var dx = e.clientX - pointerGesture.x;
+                var dy = e.clientY - pointerGesture.y;
+                if (Math.hypot(dx, dy) > 6) pointerGesture.moved = true;
+                if (pointerGesture.moved) applyOrbitDrag(e);
+                document.body.style.cursor = pointerGesture.moved ? 'grabbing' : 'grab';
+                if (pointerGesture.moved) tooltip.style.display = 'none';
+                return;
+            }
             pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
             pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
@@ -733,8 +845,25 @@
                     return;
                 }
             }
-            document.body.style.cursor = 'default';
+            document.body.style.cursor = 'grab';
             tooltip.style.display = 'none';
+        }
+
+        function onCanvasPointerUp(e) {
+            if (!pointerGesture.active || (pointerGesture.pointerId !== null && e.pointerId !== pointerGesture.pointerId)) return;
+            var wasClick = !pointerGesture.moved && Math.hypot(e.clientX - pointerGesture.x, e.clientY - pointerGesture.y) <= 6;
+            pointerGesture.active = false;
+            pointerGesture.pointerId = null;
+            document.body.style.cursor = 'grab';
+            if (wasClick) onPointerClick(e);
+        }
+
+        function onCanvasPointerCancel() {
+            pointerGesture.active = false;
+            pointerGesture.moved = true;
+            pointerGesture.pointerId = null;
+            tooltip.style.display = 'none';
+            document.body.style.cursor = 'grab';
         }
 
         function onPointerClick(e) {
@@ -770,7 +899,7 @@
                     d.title = storyScenes[idx].title;
                     d.addEventListener('click', function(ev) {
                         ev.stopPropagation();
-                        if (!isPlaying) transitionToScene(idx);
+                        if (isPlaying) transitionToScene(idx);
                         else jumpToScene(idx);
                     });
                     wrap.appendChild(d);
@@ -783,6 +912,7 @@
             document.getElementById('scene-num').textContent = 'Scene ' + scene.id + '/' + storyScenes.length;
             document.getElementById('scene-title').textContent = scene.title;
             document.getElementById('scene-desc').textContent = scene.desc;
+            setProcessStage(scene.stage || 'setup');
             // Fade halus setiap ganti scene
             var si = document.getElementById('scene-info');
             si.style.opacity = '0';
@@ -792,6 +922,22 @@
                 if (i === scene.id - 1) d.classList.add('active');
                 else if (i < scene.id - 1) d.classList.add('done');
             });
+        }
+
+        function setProcessStage(stage) {
+            var order = ['setup', 'sensing', 'processing', 'uploading', 'complete'];
+            var index = Math.max(0, order.indexOf(stage));
+            processStage = order[index];
+            var progress = document.getElementById('rail-progress');
+            if (progress) progress.style.width = (index / (order.length - 1) * 82) + '%';
+            document.querySelectorAll('#process-rail .process-step').forEach(function(step) {
+                var stepIndex = order.indexOf(step.getAttribute('data-stage'));
+                step.classList.toggle('active', stepIndex === index);
+                step.classList.toggle('done', stepIndex < index);
+            });
+            if (sensorLink) sensorLink.visible = index >= 1;
+            if (uploadLink) uploadLink.visible = index >= 3;
+            if (cloudNode) cloudNode.visible = index >= 3;
         }
 
         // Kamera bergerak pada arc kecil agar perpindahan terasa seperti dolly, bukan teleport.
@@ -829,7 +975,8 @@
             storyRuntime.actionStarted = true;
             if (beam) beam.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
-            particles.forEach(function(p) { p.visible = false; p.userData.progress = Math.random() * 0.22; });
+            particles.forEach(function(p) { p.visible = false; p.userData.progress = Math.random() * 0.22; p.userData.cloud = false; p.userData.processing = false; });
+            processingBars.forEach(function(bar) { bar.material.opacity = 0.12; });
             if (pl) pl.material.emissiveIntensity = 0.38;
             if (mc) mc.material.emissiveIntensity = 0.38;
             if (screen) screen.material.emissiveIntensity = 0.42;
@@ -860,13 +1007,15 @@
                     showStatus('Mic menangkap pola suara dari sekitar kepala', '#f9a8d4');
                     break;
                 case 'esp32':
+                    particles.forEach(function(p) { p.visible = true; p.userData.processing = true; });
+                    processingBars.forEach(function(bar) { bar.material.opacity = 0.92; });
                     if (pl) pl.material.emissiveIntensity = 0.82;
                     if (mc) mc.material.emissiveIntensity = 0.82;
                     if (screen) screen.material.emissiveIntensity = 1.15;
                     showStatus('ESP32 merangkum data secara lokal', '#86efac');
                     break;
                 case 'cloud':
-                    particles.forEach(function(p) { p.visible = true; p.userData.cloud = true; });
+                    particles.forEach(function(p) { p.visible = true; p.userData.cloud = true; p.userData.processing = false; });
                     if (cloudNode) cloudNode.visible = true;
                     if (screen) screen.material.emissiveIntensity = 1.05;
                     showStatus('Paket data naik melalui WiFi ke server aman', '#7dd3fc');
@@ -887,6 +1036,9 @@
             var beam = smartaDevice && smartaDevice.userData.beam;
             var waves = smartaDevice && smartaDevice.userData.soundWaves;
             if (cloudNode) cloudNode.visible = false;
+            if (sensorLink) sensorLink.visible = false;
+            if (uploadLink) uploadLink.visible = false;
+            processingBars.forEach(function(bar) { bar.material.opacity = 0.12; });
             // Default: semua efek MATI, baru dinyalakan sesuai aksi scene
             if (beam) beam.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
@@ -932,6 +1084,7 @@
             storyRuntime.startedAt = clock.getElapsedTime();
             storyRuntime.actionStarted = true;
             clearSceneEffects();
+            camAnim = null;
             updateSceneUI(scene);
             camera.position.set(scene.cam.p[0], scene.cam.p[1], scene.cam.p[2]);
             controls.target.set(scene.cam.t[0], scene.cam.t[1], scene.cam.t[2]);
@@ -1026,6 +1179,27 @@
                     cloudNode.rotation.z = Math.sin(time * 0.65) * 0.08;
                     cloudNode.scale.setScalar(0.94 + (Math.sin(time * 1.45) * 0.5 + 0.5) * 0.1);
                 }
+                if (sensorLink && person && person.userData.torso && smartaDevice.userData.pirLens) {
+                    var sensorStart = new THREE.Vector3();
+                    var sensorEnd = new THREE.Vector3();
+                    person.userData.torso.getWorldPosition(sensorStart);
+                    smartaDevice.userData.pirLens.getWorldPosition(sensorEnd);
+                    sensorLink.geometry.setFromPoints([sensorStart, sensorEnd]);
+                    sensorLink.material.opacity = processStage === 'sensing' ? 0.16 + (Math.sin(time * 2.2) * 0.5 + 0.5) * 0.18 : 0.08;
+                }
+                if (uploadLink && cloudNode && smartaDevice) {
+                    var uploadStart = new THREE.Vector3();
+                    var uploadEnd = new THREE.Vector3();
+                    smartaDevice.getWorldPosition(uploadStart);
+                    cloudNode.getWorldPosition(uploadEnd);
+                    uploadLink.geometry.setFromPoints([uploadStart, uploadEnd]);
+                    uploadLink.material.opacity = processStage === 'uploading' ? 0.16 + (Math.sin(time * 2.6) * 0.5 + 0.5) * 0.24 : 0.08;
+                }
+                processingBars.forEach(function(bar, i) {
+                    var wave = Math.sin(time * 4.2 - i * 0.9) * 0.5 + 0.5;
+                    bar.material.opacity = processStage === 'processing' ? 0.25 + wave * 0.7 : 0.1;
+                    bar.scale.x = processStage === 'processing' ? 0.8 + wave * 1.8 : 0.8;
+                });
                 var waves = smartaDevice.userData.soundWaves;
                 if (waves) waves.forEach(function(w, i) {
                     var phase = (time * 0.42 + i * 0.23) % 1;
@@ -1064,13 +1238,14 @@
                     var origin = ud.type === 'PIR' ? person.userData.torso : person.userData.head;
                     var sensor = ud.type === 'PIR' ? smartaDevice.userData.pirLens : smartaDevice.userData.mic;
                     origin.getWorldPosition(o);
-                    sensor.getWorldPosition(target);
+                    if (ud.processing && smartaDevice.userData.chip) smartaDevice.userData.chip.getWorldPosition(target);
+                    else sensor.getWorldPosition(target);
                     p.position.lerpVectors(o, target, e);
                 }
                 var sway = Math.sin(e * Math.PI);
                 p.position.x += Math.sin(time * 1.8 + ud.wobble) * (ud.cloud ? 0.035 : 0.025) * sway;
                 p.position.y += Math.cos(time * 1.5 + ud.wobble) * (ud.cloud ? 0.04 : 0.025) * sway;
-                p.material.opacity = (ud.cloud ? 0.72 : 0.82) * sway;
+                p.material.opacity = (ud.cloud ? 0.86 : ud.processing ? 0.92 : 0.82) * sway;
             });
 
             renderer.render(scene, camera);
