@@ -204,12 +204,13 @@
             #process-rail .rail-track, #process-rail .rail-progress { top: 22px; }
             #flow-live { top: 128px; max-width: calc(100vw - 30px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             #scene-info { left: 12px; bottom: 78px; max-width: 255px; }
+            #stats-overlay { left: 12px; right: 12px; bottom: 78px; max-width: none; }
         }
 
         #stats-overlay {
             position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            top: auto; left: auto; right: 24px; bottom: 84px;
+            transform: none;
             z-index: 150;
             background: rgba(15,23,42,0.92);
             border: 1px solid rgba(102,126,234,0.5);
@@ -299,6 +300,7 @@
         var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             var storyRuntime = { startedAt: 0, actionStarted: false };
             var phoneMotion = { active: false, startedAt: 0, start: new THREE.Vector3(1.65, 1.12, 3.15), end: new THREE.Vector3(1.28, 1.58, 2.48), startScale: 0.16, endScale: 0.34 };
+            var finaleZoom = { active: false, startedAt: 0, duration: 2.8, fromPos: new THREE.Vector3(), fromTarget: new THREE.Vector3(), toPos: new THREE.Vector3(), toTarget: new THREE.Vector3() };
             var smartaBaseY = 1.56;
 
         var storyScenes = [
@@ -310,7 +312,7 @@
             { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Perhatikan board hijau ESP32, pin header kuning, chip MCU hitam, dan tiga bar indikator yang menunjukkan proses keputusan.', stage:'processing', cam:{p:[-0.9,2.4,4.1], t:[-2.5,1.42,1.62]}, dur:6000, settle:1350, act:'esp32' },
             { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
-            { id:9, title:'Demo Selesai', desc:'SMARTA menyajikan ringkasan monitoring sebagai laporan yang mudah dipahami.', narration:'Inilah hasil akhir demonstrasi: proses dari kejadian di kasur sampai laporan di smartphone.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
+            { id:9, title:'Demo Selesai', desc:'Kamera mendekati smartphone agar hasil analisis dapat dibaca dengan jelas.', narration:'Sebagai penutup, kamera melakukan zoom ke dashboard. Setelah layar terbaca, laporan Sleep Analysis Complete muncul.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -1246,8 +1248,15 @@
                     phoneMotion.startedAt = clock.getElapsedTime() - 2.2;
                     if (cloudNode) { cloudNode.position.copy(phoneMotion.end); cloudNode.scale.setScalar(phoneMotion.endScale); cloudNode.visible = true; }
                     var ov = document.getElementById('stats-overlay');
-                    ov.classList.add('show');
-                    showStatus('Analisis tidur SMARTA selesai', '#86efac');
+                    ov.classList.remove('show');
+                    camAnim = null;
+                    finaleZoom.active = true;
+                    finaleZoom.startedAt = clock.getElapsedTime();
+                    finaleZoom.fromPos.copy(camera.position);
+                    finaleZoom.fromTarget.copy(controls.target);
+                    finaleZoom.toTarget.copy(phoneMotion.end);
+                    finaleZoom.toPos.set(phoneMotion.end.x + 1.45, phoneMotion.end.y + 0.78, phoneMotion.end.z + 1.58);
+                    showStatus('Kamera mendekati dashboard smartphone...', '#7dd3fc');
                     break;
                 default:
                     showStatus('SMARTA — intelligent sleep monitoring', '#a5b4fc');
@@ -1260,6 +1269,7 @@
             var beam = smartaDevice && smartaDevice.userData.beam;
             var waves = smartaDevice && smartaDevice.userData.soundWaves;
             phoneMotion.active = false;
+            finaleZoom.active = false;
             if (cloudNode) { cloudNode.position.copy(phoneMotion.end); cloudNode.scale.setScalar(phoneMotion.endScale); cloudNode.visible = false; }
             if (pirCoverageField) pirCoverageField.visible = false;
             if (sensorLink) sensorLink.visible = false;
@@ -1388,6 +1398,18 @@
                 controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, e);
                 camera.lookAt(controls.target);
                 if (t >= 1) camAnim = null;
+            }
+            if (finaleZoom.active) {
+                var zoomT = Math.min((time - finaleZoom.startedAt) / finaleZoom.duration, 1);
+                var zoomE = easeInOutSine(zoomT);
+                camera.position.lerpVectors(finaleZoom.fromPos, finaleZoom.toPos, zoomE);
+                controls.target.lerpVectors(finaleZoom.fromTarget, finaleZoom.toTarget, zoomE);
+                camera.lookAt(controls.target);
+                if (zoomT >= 1) {
+                    finaleZoom.active = false;
+                    document.getElementById('stats-overlay').classList.add('show');
+                    showStatus('Sleep Analysis Complete — hasil monitoring SMARTA', '#86efac');
+                }
             }
 
             if (smartaDevice) {
