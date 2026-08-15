@@ -210,7 +210,7 @@
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
     <div id="info">
         <h1>💤 SLEEP ALERT - SMARTA</h1>
-        <div id="hint">🖱️ Drag di area kamar untuk orbit · Scroll untuk zoom · Klik objek untuk detail</div>
+        <div id="hint">🎬 Kamera mengikuti storyline otomatis · Klik objek untuk detail</div>
     </div>
     <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
@@ -255,8 +255,7 @@
         var smartaDevice, bed, person, nightstand, cloudNode, sensorLink, uploadLink;
         var particles = [], interactables = [], processingBars = [];
         var processStage = 'setup';
-        var pointerGesture = { active: false, moved: false, x: 0, y: 0, pointerId: null };
-        var orbitDrag = { radius: 9, azimuth: 0.42, polar: 1.12, startAzimuth: 0.42, startPolar: 1.12 };
+
         var clock = new THREE.Clock();
         var tooltip = document.getElementById('tooltip');
         var statusEl = document.getElementById('status');
@@ -330,18 +329,18 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.08;
+            controls.enabled = false;
             controls.enableRotate = false;
             controls.enablePan = false;
+            controls.enableZoom = false;
             controls.minDistance = 2.5;
             controls.maxDistance = 18;
             controls.maxPolarAngle = Math.PI * 0.55;
             controls.target.set(0, 1.5, 0);
             controls.update();
             renderer.domElement.style.touchAction = 'none';
-            renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown, { passive: true });
             renderer.domElement.addEventListener('pointermove', onPointerMove, { passive: true });
-            window.addEventListener('pointerup', onCanvasPointerUp, { passive: true });
-            window.addEventListener('pointercancel', onCanvasPointerCancel, { passive: true });
+            renderer.domElement.addEventListener('click', onPointerClick);
 
             raycaster = new THREE.Raycaster();
             pointer = new THREE.Vector2();
@@ -783,52 +782,7 @@
             }
         }
 
-        function beginOrbitDrag() {
-            var offset = camera.position.clone().sub(controls.target);
-            orbitDrag.radius = Math.max(controls.minDistance, Math.min(controls.maxDistance, offset.length()));
-            orbitDrag.azimuth = Math.atan2(offset.x, offset.z);
-            orbitDrag.polar = Math.acos(THREE.MathUtils.clamp(offset.y / orbitDrag.radius, 0.18, 0.98));
-            orbitDrag.startAzimuth = orbitDrag.azimuth;
-            orbitDrag.startPolar = orbitDrag.polar;
-            camAnim = null;
-        }
-
-        function applyOrbitDrag(e) {
-            var dx = (e.clientX - pointerGesture.x) * 0.008;
-            var dy = (e.clientY - pointerGesture.y) * 0.006;
-            var polar = THREE.MathUtils.clamp(orbitDrag.startPolar + dy, 0.2, Math.PI * 0.54);
-            var azimuth = orbitDrag.startAzimuth - dx;
-            var sinPolar = Math.sin(polar);
-            camera.position.set(
-                controls.target.x + orbitDrag.radius * sinPolar * Math.sin(azimuth),
-                controls.target.y + orbitDrag.radius * Math.cos(polar),
-                controls.target.z + orbitDrag.radius * sinPolar * Math.cos(azimuth)
-            );
-            camera.lookAt(controls.target);
-            controls.update();
-        }
-
-        function onCanvasPointerDown(e) {
-            beginOrbitDrag();
-            pointerGesture.active = true;
-            pointerGesture.moved = false;
-            pointerGesture.x = e.clientX;
-            pointerGesture.y = e.clientY;
-            pointerGesture.pointerId = e.pointerId;
-            tooltip.style.display = 'none';
-            document.body.style.cursor = 'grabbing';
-        }
-
         function onPointerMove(e) {
-            if (pointerGesture.active) {
-                var dx = e.clientX - pointerGesture.x;
-                var dy = e.clientY - pointerGesture.y;
-                if (Math.hypot(dx, dy) > 6) pointerGesture.moved = true;
-                if (pointerGesture.moved) applyOrbitDrag(e);
-                document.body.style.cursor = pointerGesture.moved ? 'grabbing' : 'grab';
-                if (pointerGesture.moved) tooltip.style.display = 'none';
-                return;
-            }
             pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
             pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
@@ -845,25 +799,8 @@
                     return;
                 }
             }
-            document.body.style.cursor = 'grab';
+            document.body.style.cursor = 'default';
             tooltip.style.display = 'none';
-        }
-
-        function onCanvasPointerUp(e) {
-            if (!pointerGesture.active || (pointerGesture.pointerId !== null && e.pointerId !== pointerGesture.pointerId)) return;
-            var wasClick = !pointerGesture.moved && Math.hypot(e.clientX - pointerGesture.x, e.clientY - pointerGesture.y) <= 6;
-            pointerGesture.active = false;
-            pointerGesture.pointerId = null;
-            document.body.style.cursor = 'grab';
-            if (wasClick) onPointerClick(e);
-        }
-
-        function onCanvasPointerCancel() {
-            pointerGesture.active = false;
-            pointerGesture.moved = true;
-            pointerGesture.pointerId = null;
-            tooltip.style.display = 'none';
-            document.body.style.cursor = 'grab';
         }
 
         function onPointerClick(e) {
@@ -951,7 +888,7 @@
                 endTarget: new THREE.Vector3(target[0], target[1], target[2]),
                 arc: arcHeight === undefined ? Math.min(0.7, 0.16 + distance * 0.045) : arcHeight,
                 t0: clock.getElapsedTime(),
-                dur: prefersReducedMotion ? 1 : (dur || 2000)
+                dur: prefersReducedMotion ? 0.01 : ((dur || 2000) / 1000)
             };
         }
 
@@ -1088,7 +1025,7 @@
             updateSceneUI(scene);
             camera.position.set(scene.cam.p[0], scene.cam.p[1], scene.cam.p[2]);
             controls.target.set(scene.cam.t[0], scene.cam.t[1], scene.cam.t[2]);
-            controls.update();
+            camera.lookAt(controls.target);
             clearTimeout(effectTimer);
             executeSceneAction(scene.act);
 
@@ -1130,8 +1067,8 @@
                 if (currentScene > 0) { if (isPlaying) transitionToScene(currentScene - 1); else jumpToScene(currentScene - 1); }
             });
             document.getElementById('btn-reset').addEventListener('click', function() {
-                animateCameraTo([4, 4.5, 9], [0, 1.5, 0], 1700, 0.25);
-                showStatus('⟳ Kamera direset', '#94a3b8');
+                transitionToScene(currentScene);
+                showStatus('🎬 Kamera kembali mengikuti shot scene aktif', '#94a3b8');
             });
             transitionToScene(0);
         }
@@ -1150,6 +1087,7 @@
                 camera.position.copy(nextCameraPos);
                 var targetE = easeOutQuint(t);
                 controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, targetE);
+                camera.lookAt(controls.target);
                 if (t >= 1) camAnim = null;
             }
 
