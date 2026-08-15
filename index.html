@@ -229,7 +229,7 @@
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
     <div id="info">
         <h1>💤 SLEEP ALERT - SMARTA</h1>
-        <div id="hint">🎬 Kamera mengikuti storyline otomatis · Klik objek untuk detail</div>
+        <div id="hint">🎬 Mode demo SMARTA · lihat bagaimana sensor mengubah kejadian menjadi alert tidur</div>
     </div>
         <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
@@ -298,14 +298,15 @@
             var smartaBaseY = 1.56;
 
         var storyScenes = [
-            { id:1, title:'Meet SMARTA', desc:'Mini robot dengan ESP32 dan empat sensor kualitas tidur.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
-            { id:2, title:'Sensor Array', desc:'PIR, KY-037, LDR, dan MLX90614 siap membaca kamar.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6200, settle:1400, act:'sensors' },
-            { id:3, title:'User Falls Asleep', desc:'SMARTA diarahkan ke user yang mulai tertidur.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
-            { id:4, title:'Four Readings', desc:'Empat sensor mengirim gerak, suara, cahaya, dan suhu.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:5, title:'ESP32 Processing', desc:'ESP32 menggabungkan semua pembacaan menjadi data tidur.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
-            { id:6, title:'Wi-Fi Upload', desc:'ESP32 mengirim data; smartphone mulai menerima paket.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
-            { id:7, title:'Smartphone Dashboard', desc:'Setelah data tiba, grafik gerak, suara, cahaya, dan suhu tampil.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
-            { id:8, title:'Sleep Analysis Complete', desc:'SMARTA selesai menyajikan ringkasan kualitas tidur.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
+            { id:1, title:'Apa itu SMARTA?', desc:'SMARTA adalah perangkat pemantau tidur berbasis ESP32 yang mengubah kejadian di kamar menjadi informasi.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
+            { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
+            { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
+            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', stage:'sensing', cam:{p:[2.4,2.75,4.2], t:[-0.15,1.28,-0.15]}, dur:6000, settle:1300, act:'event' },
+            { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
+            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
+            { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
+            { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
+            { id:9, title:'Demo Selesai', desc:'SMARTA menyajikan ringkasan monitoring sebagai laporan yang mudah dipahami.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -567,6 +568,8 @@
             torso.castShadow = true;
             person.add(torso);
             person.userData.torso = torso;
+            person.userData.torsoBasePosition = torso.position.clone();
+            person.userData.torsoBaseRotationZ = torso.rotation.z;
 
             var neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.2, 12), skin);
             neck.rotation.x = Math.PI / 2;
@@ -581,6 +584,7 @@
             person.add(head);
             person.userData.head = head;
             person.userData.headBaseY = 1.16;
+            person.userData.headBaseX = head.position.x;
 
             var hair = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.7 }));
             hair.rotation.z = 0.3;
@@ -1034,7 +1038,7 @@
             };
             var flowLive = document.getElementById('flow-live');
             if (flowLive) {
-                flowLive.innerHTML = flowCopy[scene.stage || 'setup'];
+                flowLive.innerHTML = scene.act === 'event' ? '<strong>SIMULATION</strong> · gerakan jatuh terdeteksi di area tidur' : flowCopy[scene.stage || 'setup'];
                 flowLive.style.opacity = '0';
                 flowLive.style.transform = 'translateX(-50%) translateY(-4px)';
                 setTimeout(function() {
@@ -1140,6 +1144,14 @@
                 case 'person':
                     if (pirCoverageField) pirCoverageField.visible = true;
                     showStatus('User tertidur — area kasur masuk zona deteksi', '#c4b5fd');
+                    break;
+                case 'event':
+                    if (pirCoverageField) pirCoverageField.visible = true;
+                    if (beam) beam.visible = true;
+                    if (waves) waves.forEach(function(w) { w.visible = true; });
+                    if (sensorLink) sensorLink.visible = true;
+                    particles.forEach(function(p) { p.visible = true; p.userData.cloud = false; p.userData.processing = false; });
+                    showStatus('SIMULASI EVENT — gerakan jatuh memicu PIR dan KY-037', '#fb7185');
                     break;
                 case 'readings':
                     if (pirCoverageField) pirCoverageField.visible = true;
@@ -1321,7 +1333,7 @@
 
             if (smartaDevice) {
                 var activeAction = storyScenes[currentScene] && storyScenes[currentScene].act;
-                var focusActions = activeAction === 'pir' ? ['pir', 'person'] : activeAction === 'mic' ? ['mic', 'person'] : activeAction === 'sensors' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'readings' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'esp32' ? ['esp32'] : activeAction === 'cloud' ? ['phone'] : activeAction === 'report' ? ['phone'] : activeAction === 'person' ? ['person'] : [];
+                var focusActions = activeAction === 'pir' ? ['pir', 'person'] : activeAction === 'mic' ? ['mic', 'person'] : activeAction === 'sensors' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'readings' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'event' ? ['person', 'pir', 'mic'] : activeAction === 'esp32' ? ['esp32'] : activeAction === 'cloud' ? ['phone'] : activeAction === 'report' ? ['phone'] : activeAction === 'person' ? ['person'] : [];
                 focusHalos.forEach(function(item) {
                     var focused = storyRuntime.actionStarted && focusActions.indexOf(item.action) !== -1;
                     item.mesh.visible = focused;
@@ -1340,8 +1352,8 @@
                 var mlx = smartaDevice.userData.mlx;
                 var screen = smartaDevice.userData.screen;
                 var leds = smartaDevice.userData.leds || [];
-                var sensorPulse = storyRuntime.actionStarted && (activeAction === 'pir' || activeAction === 'sensors' || activeAction === 'readings') ? 0.5 + (Math.sin(time * 3.1) * 0.5 + 0.5) * 0.9 : 0.38;
-                var micPulse = storyRuntime.actionStarted && (activeAction === 'mic' || activeAction === 'sensors' || activeAction === 'readings') ? 0.5 + (Math.sin(time * 2.35 + 0.7) * 0.5 + 0.5) * 0.8 : 0.38;
+                var sensorPulse = storyRuntime.actionStarted && (activeAction === 'pir' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event') ? 0.5 + (Math.sin(time * 3.1) * 0.5 + 0.5) * 0.9 : 0.38;
+                var micPulse = storyRuntime.actionStarted && (activeAction === 'mic' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event') ? 0.5 + (Math.sin(time * 2.35 + 0.7) * 0.5 + 0.5) * 0.8 : 0.38;
                 var ldrPulse = storyRuntime.actionStarted && (activeAction === 'sensors' || activeAction === 'readings') ? 0.5 + (Math.sin(time * 2.05 + 1.4) * 0.5 + 0.5) * 0.7 : 0.38;
                 var tempPulse = storyRuntime.actionStarted && (activeAction === 'sensors' || activeAction === 'readings') ? 0.5 + (Math.sin(time * 1.8 + 2.1) * 0.5 + 0.5) * 0.75 : 0.38;
                 if (pl) { pl.scale.setScalar(1 + (sensorPulse - 0.38) * 0.08); pl.material.emissiveIntensity = sensorPulse; }
@@ -1363,7 +1375,7 @@
                     pirCoverageField.children[1].material.opacity = 0.18 + fieldPulse * 0.14;
                 }
                 if (smartaDevice.userData.beam) {
-                    var beamActive = activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings';
+                    var beamActive = activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event';
                     smartaDevice.userData.beam.material.opacity = beamActive ? 0.08 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.012;
                 }
                 if (cloudNode && cloudNode.visible) {
@@ -1434,7 +1446,7 @@
                     var phase = (time * 0.42 + i * 0.23) % 1;
                     var waveScale = 0.8 + phase * 3.7;
                     w.scale.set(waveScale * 0.86, waveScale * 1.12, 1);
-                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings') && w.visible ? 0.46 * (1 - phase) : 0;
+                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event') && w.visible ? 0.46 * (1 - phase) : 0;
                 });
             }
 
@@ -1448,6 +1460,15 @@
                     person.userData.head.rotation.y = breath * 0.018;
                 }
                 if (person.userData.neck) person.userData.neck.position.y = 1.14 + breath * 0.006;
+                var eventActive = activeAction === 'event';
+                var eventT = eventActive ? Math.min(1, Math.max(0, (time - storyRuntime.startedAt) / 1.4)) : 0;
+                var eventKick = eventActive ? Math.sin(eventT * Math.PI) : 0;
+                person.userData.torso.rotation.z = person.userData.torsoBaseRotationZ + eventKick * 0.26;
+                person.userData.torso.position.x = person.userData.torsoBasePosition.x + eventKick * 0.14;
+                if (person.userData.head) {
+                    person.userData.head.position.x = person.userData.headBaseX + eventKick * 0.1;
+                    person.userData.head.rotation.z = eventKick * -0.16;
+                }
             }
 
             particles.forEach(function(p) {
