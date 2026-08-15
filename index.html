@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleep Alert - SMARTA Device</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #12162a;
+            color: #fff;
+            overflow: hidden;
+        }
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.75);
+            padding: 16px 36px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.12);
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 1.7rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        #hint { color: #94a3b8; font-size: 0.85rem; }
+        #tooltip {
+            position: fixed;
+            z-index: 200;
+            background: rgba(15,23,42,0.95);
+            border: 1px solid rgba(102,126,234,0.5);
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            display: none;
+            max-width: 260px;
+        }
+        #tooltip .name { font-weight: 700; color: #818cf8; margin-bottom: 4px; }
+        #tooltip .desc { color: #cbd5e1; font-size: 0.8rem; line-height: 1.4; }
+        #status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 22px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #10b981;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        #loading {
+            position: fixed; inset: 0; z-index: 300;
+            background: #12162a; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 15px;
+            transition: opacity 0.5s;
+        }
+        #loading.hidden { opacity: 0; pointer-events: none; }
+        .spinner {
+            width: 46px; height: 46px;
+            border: 4px solid rgba(102,126,234,0.2);
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== SCENE UI (Phase 2) ===== */
+        #scene-info {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.72);
+            padding: 14px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(102,126,234,0.35);
+            backdrop-filter: blur(8px);
+            max-width: 300px;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        #scene-info .scene-num { font-size: 0.7rem; letter-spacing: 0.12em; color: #818cf8; text-transform: uppercase; margin-bottom: 4px; }
+        #scene-info .scene-title { font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        #scene-info .scene-desc { font-size: 0.8rem; color: #cbd5e1; line-height: 1.45; }
+
+        #progress-dots {
+            position: fixed;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+            background: rgba(0,0,0,0.55);
+            padding: 8px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(6px);
+        }
+        #progress-dots .dot {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+            transition: all 0.3s;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        #progress-dots .dot.active {
+            background: #667eea;
+            transform: scale(1.4);
+            box-shadow: 0 0 10px rgba(102,126,234,0.8);
+        }
+        #progress-dots .dot.done { background: #764ba2; }
+
+        #controls {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+        #controls button {
+            width: 42px; height: 42px;
+            border-radius: 12px;
+            border: 1px solid rgba(102,126,234,0.4);
+            background: rgba(15,23,42,0.8);
+            color: #e2e8f0;
+            font-size: 1.05rem;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #controls button:hover { background: rgba(102,126,234,0.3); transform: translateY(-2px); }
+        #controls button:active { transform: translateY(0); }
+
+        #stats-overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 150;
+            background: rgba(15,23,42,0.92);
+            border: 1px solid rgba(102,126,234,0.5);
+            border-radius: 18px;
+            padding: 24px 32px;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s;
+            backdrop-filter: blur(10px);
+        }
+        #stats-overlay.show { opacity: 1; }
+        #stats-overlay h3 { font-size: 1.3rem; margin-bottom: 12px; background: linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-overlay .stat { display: flex; justify-content: space-between; gap: 30px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; }
+        #stats-overlay .stat .v { color: #10b981; font-weight: 700; }
+        #stats-overlay .check { font-size: 2.6rem; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
+    <div id="info">
+        <h1>💤 SLEEP ALERT - SMARTA</h1>
+        <div id="hint">🖱️ Drag untuk putar kamera · Scroll untuk zoom · Klik benda untuk interaksi</div>
+    </div>
+    <div id="tooltip"></div>
+    <div id="status">Kamar siap — klik benda untuk interaksi</div>
+
+    <!-- Phase 2: Scene Storyline UI -->
+    <div id="scene-info">
+        <div class="scene-num" id="scene-num">Scene 1/8</div>
+        <div class="scene-title" id="scene-title">Meet SMARTA</div>
+        <div class="scene-desc" id="scene-desc"></div>
+    </div>
+    <div id="progress-dots"></div>
+    <div id="controls">
+        <button id="btn-skip-back" title="Scene sebelumnya">⏮</button>
+        <button id="btn-play" title="Play/Pause">⏸</button>
+        <button id="btn-skip-next" title="Scene berikutnya">⏭</button>
+        <button id="btn-reset" title="Reset kamera">⟳</button>
+    </div>
+    <div id="stats-overlay">
+        <div class="check">✅</div>
+        <h3>Sleep Analysis Complete</h3>
+        <div class="stat"><span>Kualitas Tidur</span><span class="v">92%</span></div>
+        <div class="stat"><span>Durasi</span><span class="v">7j 42m</span></div>
+        <div class="stat"><span>Gerakan Terdeteksi</span><span class="v">14×</span></div>
+        <div class="stat"><span>Snoring</span><span class="v">Rendah</span></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // ===== GLOBAL STATE =====
+        var scene, camera, renderer, controls, raycaster, pointer;
+        var smartaDevice, bed, person, nightstand;
+        var particles = [], interactables = [];
+        var clock = new THREE.Clock();
+        var tooltip = document.getElementById('tooltip');
+        var statusEl = document.getElementById('status');
+        var ceilingLight;
+
+        var statusTimer;
+        // ===== STORYLINE STATE (Phase 2) =====
+        var currentScene = 0;
+        var isPlaying = true;
+        var sceneTimer = null;
+        var effectTimer = null; // timeout executeSceneAction yang tertunda (harus dibatalkan saat lompat scene)
+        var camAnim = null; // { startPos, startTarget, endPos, endTarget, t0, dur }
+        var dotEls = [];
+
+        var storyScenes = [
+            { id:1, title:'Meet SMARTA', desc:'IoT device: ESP32 + PIR + Mic untuk monitoring tidur.', cam:{p:[-4.4,2.3,3.1], t:[-2.8,1.5,1.6]}, dur:4000, act:'meet' },
+            { id:2, title:'Bedroom Setup', desc:'SMARTA memantau dari meja nakas.', cam:{p:[-2,3.5,7.5], t:[0,1.2,0]}, dur:4000, act:'wide' },
+            { id:3, title:'User Falls Asleep', desc:'Monitoring dimulai otomatis saat user tidur.', cam:{p:[2.4,2.2,4.2], t:[0,1.3,0]}, dur:4000, act:'person' },
+            { id:4, title:'PIR Motion Detection', desc:'Sensor inframerah melacak gerakan tubuh di kasur.', cam:{p:[-0.5,2.1,3.6], t:[-1.9,1.2,0.8]}, dur:5000, act:'pir' },
+            { id:5, title:'Sound Monitoring', desc:'Mic menangkap noise & snoring di sekitar.', cam:{p:[-3.5,1.8,2.9], t:[-2.6,1.4,1.3]}, dur:5000, act:'mic' },
+            { id:6, title:'ESP32 Processing', desc:'Data diproses lokal tiap 30 menit.', cam:{p:[-2.1,1.9,2.7], t:[-2.7,1.5,1.7]}, dur:4500, act:'esp32' },
+            { id:7, title:'Cloud Transmission', desc:'Hasil diunggah aman via WiFi ke server.', cam:{p:[0.5,6,7], t:[0,2.5,0]}, dur:4500, act:'cloud' },
+            { id:8, title:'Sleep Analysis Complete', desc:'Laporan lengkap tersedia di aplikasi mobile.', cam:{p:[0.5,3.5,8.5], t:[0,1.3,0]}, dur:6000, act:'stats' }
+        ];
+
+        function showStatus(msg, color) {
+            statusEl.textContent = msg;
+            statusEl.style.color = color || '#10b981';
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(function() {
+                statusEl.style.color = '#10b981';
+                statusEl.textContent = 'Kamar siap — klik benda untuk interaksi';
+            }, 2600);
+        }
+
+        function addInteractable(obj, name, desc, onClick) {
+            // MERGE userData, jangan timpa — referensi sensor (pirLens, mic, beam, torso) harus dipertahankan
+            var ud = obj.userData || {};
+            ud.name = name;
+            ud.desc = desc;
+            ud.onClick = onClick;
+            ud.isInteractable = true;
+            obj.userData = ud;
+            interactables.push(obj);
+            return obj;
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x12162a);
+            scene.fog = new THREE.Fog(0x12162a, 15, 40);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(4, 4.5, 9);
+            camera.lookAt(0, 1.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // OrbitControls (kamera) — drag rotate, scroll zoom
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.minDistance = 2.5;
+            controls.maxDistance = 18;
+            controls.maxPolarAngle = Math.PI * 0.55;
+            controls.target.set(0, 1.5, 0);
+            controls.update();
+
+            raycaster = new THREE.Raycaster();
+            pointer = new THREE.Vector2();
+
+            // Lighting
+            var ambient = new THREE.AmbientLight(0x8899cc, 0.6);
+            scene.add(ambient);
+
+            ceilingLight = new THREE.PointLight(0xfff4d6, 1.6, 18, 2);
+            ceilingLight.position.set(0, 5.5, 0);
+            ceilingLight.castShadow = true;
+            ceilingLight.shadow.mapSize.set(1024, 1024);
+            scene.add(ceilingLight);
+
+            var moonlight = new THREE.DirectionalLight(0x6b8cff, 0.9);
+            moonlight.position.set(-6, 6, -6);
+            moonlight.castShadow = true;
+            moonlight.shadow.mapSize.set(2048, 2048);
+            moonlight.shadow.camera.left = -8;
+            moonlight.shadow.camera.right = 8;
+            moonlight.shadow.camera.top = 8;
+            moonlight.shadow.camera.bottom = -8;
+            scene.add(moonlight);
+
+            createRoom();
+            createBed();
+            createPerson();
+            createNightstand();
+            createSmarta();
+            createParticles();
+
+            startStory();
+
+            window.addEventListener('resize', onResize);
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('click', onPointerClick);
+
+            setTimeout(function() {
+                document.getElementById('loading').classList.add('hidden');
+            }, 600);
+
+            animate();
+        }
+
+        // ===== MATERIALS =====
+        function matWood() { return new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.6 }); }
+        function matWoodDark() { return new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.55 }); }
+        function matMetal() { return new THREE.MeshStandardMaterial({ color: 0x3a3f4a, metalness: 0.7, roughness: 0.4 }); }
+        function matFabric(c) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }); }
+
+        function createRoom() {
+            var room = new THREE.Group();
+
+            // Lantai kayu
+            var floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14, 28, 28), matWood());
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            room.add(floor);
+
+            // Karpet bulat
+            var rug = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.03, 32), matFabric(0x5b4a6a));
+            rug.position.set(0, 0.015, 0);
+            rug.receiveShadow = true;
+            room.add(rug);
+
+            var wallMat = new THREE.MeshStandardMaterial({ color: 0x2b3650, roughness: 0.85 });
+            // Dinding belakang
+            var backWall = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), wallMat);
+            backWall.position.set(0, 3, -7);
+            backWall.receiveShadow = true;
+            room.add(backWall);
+            // Dinding kiri
+            var leftWall = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), wallMat);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-7, 3, 0);
+            leftWall.receiveShadow = true;
+            room.add(leftWall);
+            // Dinding kanan
+            var rightWall = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), new THREE.MeshStandardMaterial({ color: 0x242e48, roughness: 0.85 }));
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(7, 3, 0);
+            rightWall.receiveShadow = true;
+            room.add(rightWall);
+
+            // Langit-langit
+            var ceiling = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshStandardMaterial({ color: 0x3a4560, roughness: 0.9 }));
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 6;
+            room.add(ceiling);
+
+            // Lampu gantung (interaktif)
+            var lampFixture = new THREE.Group();
+            var cord = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8), matMetal());
+            cord.position.y = -0.4;
+            lampFixture.add(cord);
+            var shade = new THREE.Mesh(
+                new THREE.ConeGeometry(0.7, 0.55, 24, 1, true),
+                new THREE.MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xffe0a0, emissiveIntensity: 0.6, side: THREE.DoubleSide })
+            );
+            shade.position.y = -0.7;
+            lampFixture.add(shade);
+            var bulb = new THREE.Mesh(
+                new THREE.SphereGeometry(0.18, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff0c0, emissiveIntensity: 1.2 })
+            );
+            bulb.position.y = -0.62;
+            lampFixture.add(bulb);
+            lampFixture.position.set(0, 5.6, 0);
+            room.add(lampFixture);
+            addInteractable(lampFixture, 'Lampu Langit-langit', 'Klik untuk mati/nyalakan.', function() {
+                var on = ceilingLight.visible;
+                ceilingLight.visible = !on;
+                bulb.material.emissiveIntensity = on ? 0 : 1.2;
+                shade.material.emissiveIntensity = on ? 0 : 0.6;
+                showStatus(on ? '💡 Lampu langit-langit MATI' : '💡 Lampu langit-langit MENYALA', '#fbbf24');
+            });
+
+            // Jendela
+            var winGroup = new THREE.Group();
+            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.6, 0.12), matWoodDark()));
+            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 0.04), new THREE.MeshStandardMaterial({ color: 0x1a2b4a, roughness: 0.1, metalness: 0.3, emissive: 0x3a5ab0, emissiveIntensity: 0.5 })).position.set(0,0,0.05));
+            winGroup.position.set(-3.5, 2.6, -6.9);
+            room.add(winGroup);
+
+            scene.add(room);
+        }
+
+        function createBed() {
+            bed = new THREE.Group();
+            var frameMat = matWoodDark();
+
+            var headboard = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.6, 0.25), frameMat);
+            headboard.position.set(0, 1.0, -2.15);
+            headboard.castShadow = true;
+            bed.add(headboard);
+
+            var footboard = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.7, 0.2), frameMat);
+            footboard.position.set(0, 0.5, 2.15);
+            footboard.castShadow = true;
+            bed.add(footboard);
+
+            var railL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.35, 4.4), frameMat);
+            railL.position.set(-1.7, 0.4, 0);
+            railL.castShadow = true;
+            bed.add(railL);
+            var railR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.35, 4.4), frameMat);
+            railR.position.set(1.7, 0.4, 0);
+            railR.castShadow = true;
+            bed.add(railR);
+
+            var slats = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.15, 4.2), matWood());
+            slats.position.y = 0.45;
+            bed.add(slats);
+
+            var mattress = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.55, 4.2), matFabric(0xe8e8f0));
+            mattress.position.y = 0.8;
+            mattress.castShadow = true;
+            bed.add(mattress);
+
+            var pillowMat = matFabric(0xf5f5fa);
+            var pillow1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.28, 0.85), pillowMat);
+            pillow1.position.set(-0.55, 1.22, -1.5);
+            pillow1.rotation.x = -0.06;
+            pillow1.castShadow = true;
+            bed.add(pillow1);
+            var pillow2 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.28, 0.85), pillowMat);
+            pillow2.position.set(0.55, 1.22, -1.5);
+            pillow2.rotation.x = -0.06;
+            pillow2.castShadow = true;
+            bed.add(pillow2);
+
+            var blanket = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.34, 2.6), matFabric(0x667eea));
+            blanket.position.set(0, 1.3, 0.75);
+            blanket.castShadow = true;
+            bed.add(blanket);
+            var fold = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 0.7), matFabric(0x7788ee));
+            fold.position.set(0, 1.38, 1.62);
+            fold.rotation.x = -0.15;
+            fold.castShadow = true;
+            bed.add(fold);
+
+            scene.add(bed);
+            addInteractable(bed, 'Kasur', 'Kasur kayu dengan selimut biru. User tidur di atasnya.', function() {
+                showStatus('🛏️ Kasur — tempat user tidur dan dimonitor SMARTA', '#818cf8');
+            });
+        }
+
+        function createPerson() {
+            person = new THREE.Group();
+            var skin = new THREE.MeshStandardMaterial({ color: 0xf0c8a0, roughness: 0.8 });
+            var shirt = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.85 });
+
+            // Berbaring di kasur: kepala di bantal (z≈-1.5), badan memanjang ke arah kaki (+Z)
+            var torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.85, 8, 16), shirt);
+            torso.rotation.x = Math.PI / 2;               // rebahkan sepanjang sumbu Z
+            torso.position.set(0.45, 0.98, -0.75);        // dada ~1.28 (benam di kasur, bukan melayang)
+            torso.castShadow = true;
+            person.add(torso);
+            person.userData.torso = torso;
+
+            var head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 20), skin);
+            head.position.set(0.55, 1.16, -1.3);          // bersandar di bantal (top bantal y≈1.36)
+            head.castShadow = true;
+            person.add(head);
+            person.userData.head = head;
+            person.userData.headBaseY = 1.16;
+
+            var hair = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.7 }));
+            hair.rotation.z = 0.3;
+            hair.rotation.y = -0.4;
+            hair.position.set(0.55, 1.2, -1.32);
+            person.add(hair);
+
+            // Lengan di atas selimut, di samping badan
+            var armGeo = new THREE.CapsuleGeometry(0.09, 0.5, 4, 8);
+            var armL = new THREE.Mesh(armGeo, skin);
+            armL.rotation.x = Math.PI / 2;
+            armL.position.set(0.12, 1.52, -0.15);
+            armL.castShadow = true;
+            person.add(armL);
+            var armR = new THREE.Mesh(armGeo, skin);
+            armR.rotation.x = Math.PI / 2;
+            armR.position.set(0.8, 1.52, -0.15);
+            armR.castShadow = true;
+            person.add(armR);
+            var handL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), skin);
+            handL.position.set(0.12, 1.52, 0.15);
+            person.add(handL);
+            var handR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), skin);
+            handR.position.set(0.8, 1.52, 0.15);
+            person.add(handR);
+
+            scene.add(person);
+            addInteractable(person, 'User (Tidur)', 'Orang tidur di kasur, dipantau sensor SMARTA.', function() {
+                showStatus('😴 User tidur nyenyak — PIR & mic memantau', '#818cf8');
+            });
+        }
+
+        function createNightstand() {
+            nightstand = new THREE.Group();
+            var drawerOpen = false;
+            var drawerFront, knob;
+
+            // 4 kaki pendek di bawah (lantai → badan kabinet)
+            var legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.22, 10);
+            var legMat = matWoodDark();
+            [[-0.6, -0.38], [0.6, -0.38], [-0.6, 0.38], [0.6, 0.38]].forEach(function(c) {
+                var leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(c[0], 0.11, c[1]);
+                leg.castShadow = true;
+                nightstand.add(leg);
+            });
+
+            // Badan kabinet (antara kaki dan atas meja)
+            var body = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.78, 0.84), matWoodDark());
+            body.position.y = 0.59;   // y 0.2 - 0.98
+            body.castShadow = true;
+            nightstand.add(body);
+
+            // Bagian depan laci (bisa digeser saat diklik)
+            drawerFront = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.3, 0.06), matWood());
+            drawerFront.position.set(0, 0.5, 0.42);
+            drawerFront.castShadow = true;
+            nightstand.add(drawerFront);
+
+            knob = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 12), matMetal());
+            knob.position.set(0, 0.5, 0.47);
+            nightstand.add(knob);
+
+            // Atas meja (permukaan y = 1.08)
+            var top = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 1.0), matWood());
+            top.position.y = 1.04;
+            top.castShadow = true;
+            top.receiveShadow = true;
+            nightstand.add(top);
+
+            nightstand.position.set(-2.8, 0, 1.6);
+            scene.add(nightstand);
+
+            addInteractable(nightstand, 'Meja Nakas', 'Meja kayu tempat SMARTA. Klik untuk buka/tutup laci.', function() {
+                drawerOpen = !drawerOpen;
+                drawerFront.position.z = drawerOpen ? 0.62 : 0.42;
+                knob.position.z = drawerOpen ? 0.67 : 0.47;
+                showStatus(drawerOpen ? '🗄️ Laci dibuka' : '🗄️ Laci ditutup', '#94a3b8');
+            });
+        }
+
+        function createSmarta() {
+            smartaDevice = new THREE.Group();
+
+            var casing = new THREE.Mesh(
+                new THREE.BoxGeometry(0.75, 0.95, 0.55),
+                new THREE.MeshStandardMaterial({ color: 0xd0ecff, transparent: true, opacity: 0.35, roughness: 0.08, metalness: 0.3 })
+            );
+            casing.castShadow = true;
+            smartaDevice.add(casing);
+
+            var screen = new THREE.Mesh(
+                new THREE.BoxGeometry(0.68, 0.28, 0.06),
+                new THREE.MeshStandardMaterial({ color: 0x1e3a8a, emissive: 0x3b82f6, emissiveIntensity: 0.9, roughness: 0.3 })
+            );
+            screen.position.set(0, 0.4, 0.26);
+            smartaDevice.add(screen);
+
+            var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            var eye1 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), eyeMat);
+            eye1.position.set(-0.14, 0.44, 0.3);
+            smartaDevice.add(eye1);
+            var eye2 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), eyeMat);
+            eye2.position.set(0.14, 0.44, 0.3);
+            smartaDevice.add(eye2);
+            var smile = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.02, 8, 16, Math.PI), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            smile.position.set(0, 0.34, 0.3);
+            smartaDevice.add(smile);
+
+            var esp32 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.07, 0.4), new THREE.MeshStandardMaterial({ color: 0x047857, emissive: 0x047857, emissiveIntensity: 0.35 }));
+            esp32.position.y = 0;
+            smartaDevice.add(esp32);
+            var chip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.2), matMetal());
+            chip.position.set(0, 0.08, 0);
+            smartaDevice.add(chip);
+
+            var pirLens = new THREE.Mesh(
+                new THREE.SphereGeometry(0.13, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x667eea, emissiveIntensity: 0.9, transparent: true, opacity: 0.9 })
+            );
+            pirLens.position.set(-0.22, -0.15, 0.28);
+            smartaDevice.add(pirLens);
+            smartaDevice.userData.pirLens = pirLens;
+
+            var mic = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.09, 0.09, 0.14, 16),
+                new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0xec4899, emissiveIntensity: 0.8, metalness: 0.8 })
+            );
+            mic.rotation.x = Math.PI / 2;
+            mic.position.set(0.22, -0.15, 0.28);
+            smartaDevice.add(mic);
+            smartaDevice.userData.mic = mic;
+
+            var ledColors = [0x10b981, 0xfbbf24, 0x3b82f6];
+            for (var i = 0; i < 3; i++) {
+                var led = new THREE.Mesh(new THREE.CircleGeometry(0.03, 10), new THREE.MeshBasicMaterial({ color: ledColors[i], transparent: true, opacity: 0.9 }));
+                led.position.set(-0.18 + i * 0.18, -0.42, 0.3);
+                smartaDevice.add(led);
+            }
+
+            // Scanning beam (PIR ke arah kasur)
+            var beamGeo = new THREE.ConeGeometry(0.9, 3.2, 20, 1, true);
+            var beamMat = new THREE.MeshBasicMaterial({ color: 0x667eea, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+            var beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.position.set(-0.22, -0.15, 1.7);
+            beam.rotation.x = Math.PI / 2;
+            smartaDevice.add(beam);
+            smartaDevice.userData.beam = beam;
+
+            // Sound waves (mic)
+            var soundWaves = [];
+            for (var j = 0; j < 3; j++) {
+                var ring = new THREE.Mesh(
+                    new THREE.RingGeometry(0.18, 0.24, 24),
+                    new THREE.MeshBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.5 - j * 0.12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+                );
+                ring.position.set(0.22, -0.15, 0.5 + j * 0.6);
+                ring.rotation.x = Math.PI / 2;
+                smartaDevice.add(ring);
+                soundWaves.push(ring);
+            }
+            smartaDevice.userData.soundWaves = soundWaves;
+
+            // Posisi SMARTA di ATAS meja (permukaan y=1.08 + setengah casing 0.475 → y ≈ 1.56)
+            smartaDevice.position.set(-2.8, 1.56, 1.6);
+            // Hadap kasur: local +Z diputar menuju bed center (0,0) → θ = atan2(dx, dz)
+            // = atan2(2.8, -1.6) ≈ 2.09 rad → muka + beam PIR mengarah ke kasur, bukan dinding
+            smartaDevice.rotation.y = Math.atan2(0 - (-2.8), 0 - 1.6);
+            scene.add(smartaDevice);
+
+            addInteractable(smartaDevice, 'SMARTA Device', 'IoT: ESP32 + PIR + Mic. Klik untuk fokus.', function() {
+                controls.target.set(-2.8, 1.58, 1.6);
+                showStatus('🔍 Fokus ke SMARTA device', '#818cf8');
+            });
+        }
+
+        function createParticles() {
+            for (var i = 0; i < 30; i++) {
+                var isPir = i < 15;
+                var p = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.045, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: isPir ? 0x667eea : 0xec4899, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending })
+                );
+                // Aliran data: person → device (hasil sensing dikirim ke SMARTA, bukan sebaliknya)
+                p.userData = {
+                    type: isPir ? 'PIR' : 'MIC',
+                    progress: Math.random(),          // fase acak agar tidak serentak (sinkron)
+                    speed: 0.005 + Math.random() * 0.006,
+                    wobble: Math.random() * Math.PI * 2
+                };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function onPointerMove(e) {
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            var intersects = raycaster.intersectObjects(interactables, true);
+            if (intersects.length > 0) {
+                var obj = intersects[0].object;
+                var root = obj.userData.isInteractable ? obj : findRoot(obj);
+                if (root) {
+                    document.body.style.cursor = 'pointer';
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 14) + 'px';
+                    tooltip.style.top = (e.clientY - 10) + 'px';
+                    tooltip.innerHTML = '<div class="name">' + root.userData.name + '</div><div class="desc">' + root.userData.desc + '</div>';
+                    return;
+                }
+            }
+            document.body.style.cursor = 'default';
+            tooltip.style.display = 'none';
+        }
+
+        function onPointerClick(e) {
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            var intersects = raycaster.intersectObjects(interactables, true);
+            if (intersects.length > 0) {
+                var obj = intersects[0].object;
+                var root = obj.userData.isInteractable ? obj : findRoot(obj);
+                if (root && root.userData.onClick) root.userData.onClick();
+            }
+        }
+
+        function findRoot(obj) {
+            var cur = obj;
+            while (cur) {
+                if (cur.userData && cur.userData.isInteractable) return cur;
+                cur = cur.parent;
+            }
+            return null;
+        }
+
+        // ===== STORYLINE SYSTEM (Phase 2) =====
+        function buildProgressDots() {
+            var wrap = document.getElementById('progress-dots');
+            wrap.innerHTML = '';
+            dotEls = [];
+            for (var i = 0; i < storyScenes.length; i++) {
+                (function(idx) {
+                    var d = document.createElement('span');
+                    d.className = 'dot';
+                    d.title = storyScenes[idx].title;
+                    d.addEventListener('click', function(ev) {
+                        ev.stopPropagation();
+                        if (!isPlaying) transitionToScene(idx);
+                        else jumpToScene(idx);
+                    });
+                    wrap.appendChild(d);
+                    dotEls.push(d);
+                })(i);
+            }
+        }
+
+        function updateSceneUI(scene) {
+            document.getElementById('scene-num').textContent = 'Scene ' + scene.id + '/' + storyScenes.length;
+            document.getElementById('scene-title').textContent = scene.title;
+            document.getElementById('scene-desc').textContent = scene.desc;
+            // Fade halus setiap ganti scene
+            var si = document.getElementById('scene-info');
+            si.style.opacity = '0';
+            setTimeout(function() { si.style.opacity = '1'; }, 60);
+            dotEls.forEach(function(d, i) {
+                d.className = 'dot';
+                if (i === scene.id - 1) d.classList.add('active');
+                else if (i < scene.id - 1) d.classList.add('done');
+            });
+        }
+
+        // Animasi kamera: lerp posisi + target, easeInOutCubic
+        function animateCameraTo(pos, target, dur) {
+            camAnim = {
+                startPos: camera.position.clone(),
+                startTarget: controls.target.clone(),
+                endPos: new THREE.Vector3(pos[0], pos[1], pos[2]),
+                endTarget: new THREE.Vector3(target[0], target[1], target[2]),
+                t0: clock.getElapsedTime(),
+                dur: dur || 2000
+            };
+        }
+
+        function easeInOutCubic(t) {
+            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function executeSceneAction(act) {
+            if (!smartaDevice) return;
+            var pl = smartaDevice.userData.pirLens;
+            var mc = smartaDevice.userData.mic;
+            var beam = smartaDevice.userData.beam;
+            var waves = smartaDevice.userData.soundWaves;
+
+            // Default: semua efek dimatikan
+            if (beam) beam.visible = false;
+            if (waves) waves.forEach(function(w) { w.visible = false; });
+            particles.forEach(function(p) { p.visible = false; });
+            if (pl) pl.material.emissiveIntensity = 0.4;
+            if (mc) mc.material.emissiveIntensity = 0.4;
+
+            switch (act) {
+                case 'pir':
+                    if (beam) beam.visible = true;
+                    particles.forEach(function(p) { if (p.userData.type === 'PIR') p.visible = true; });
+                    if (pl) pl.material.emissiveIntensity = 1.4;
+                    showStatus('📡 PIR mendeteksi gerakan tubuh', '#818cf8');
+                    break;
+                case 'mic':
+                    if (waves) waves.forEach(function(w) { w.visible = true; });
+                    particles.forEach(function(p) { if (p.userData.type === 'MIC') p.visible = true; });
+                    if (mc) mc.material.emissiveIntensity = 1.4;
+                    showStatus('🎙️ Mic menangkap noise & snoring', '#ec4899');
+                    break;
+                case 'esp32':
+                    if (pl) pl.material.emissiveIntensity = 0.8;
+                    if (mc) mc.material.emissiveIntensity = 0.8;
+                    showStatus('🧠 ESP32 memproses data tidur', '#10b981');
+                    break;
+                case 'cloud':
+                    showStatus('☁️ Data tidur diunggah ke cloud', '#38bdf8');
+                    break;
+                case 'stats':
+                    var ov = document.getElementById('stats-overlay');
+                    ov.classList.add('show');
+                    showStatus('📊 Analisis tidur selesai', '#10b981');
+                    break;
+                case 'person':
+                    showStatus('😴 User mulai tertidur', '#a78bfa');
+                    break;
+                default:
+                    showStatus('SMARTA — intelligent sleep monitoring', '#818cf8');
+            }
+        }
+
+        function clearSceneEffects() {
+            var ov = document.getElementById('stats-overlay');
+            ov.classList.remove('show');
+            var beam = smartaDevice && smartaDevice.userData.beam;
+            var waves = smartaDevice && smartaDevice.userData.soundWaves;
+            // Default: semua efek MATI, baru dinyalakan sesuai aksi scene
+            if (beam) beam.visible = false;
+            if (waves) waves.forEach(function(w) { w.visible = false; });
+            particles.forEach(function(p) { p.visible = false; });
+            if (smartaDevice) {
+                var pl = smartaDevice.userData.pirLens;
+                var mc = smartaDevice.userData.mic;
+                if (pl) pl.material.emissiveIntensity = 0.4;
+                if (mc) mc.material.emissiveIntensity = 0.4;
+            }
+        }
+
+        function transitionToScene(index) {
+            index = Math.max(0, Math.min(index, storyScenes.length - 1));
+            currentScene = index;
+            var scene = storyScenes[currentScene];
+            clearSceneEffects();
+            updateSceneUI(scene);
+            animateCameraTo(scene.cam.p, scene.cam.t, 2000);
+            clearTimeout(effectTimer);
+            effectTimer = setTimeout(function() { executeSceneAction(scene.act); }, 1900);
+
+            clearTimeout(sceneTimer);
+            if (isPlaying) {
+                sceneTimer = setTimeout(function() {
+                    if (currentScene < storyScenes.length - 1) transitionToScene(currentScene + 1);
+                    else setPlaying(false);
+                }, scene.dur + 2000);
+            }
+        }
+
+        function jumpToScene(index) {
+            // Saat playing: segera pindah scene
+            index = Math.max(0, Math.min(index, storyScenes.length - 1));
+            currentScene = index;
+            var scene = storyScenes[currentScene];
+            clearSceneEffects();
+            updateSceneUI(scene);
+            camera.position.set(scene.cam.p[0], scene.cam.p[1], scene.cam.p[2]);
+            controls.target.set(scene.cam.t[0], scene.cam.t[1], scene.cam.t[2]);
+            controls.update();
+            clearTimeout(effectTimer);  // batalkan efek tertunda dari scene sebelumnya
+            executeSceneAction(scene.act);
+
+            clearTimeout(sceneTimer);
+            if (isPlaying) {
+                sceneTimer = setTimeout(function() {
+                    if (currentScene < storyScenes.length - 1) transitionToScene(currentScene + 1);
+                    else setPlaying(false);
+                }, scene.dur);
+            }
+        }
+
+        function setPlaying(play) {
+            isPlaying = play;
+            document.getElementById('btn-play').textContent = play ? '⏸' : '▶';
+            if (play && currentScene === storyScenes.length - 1) {
+                // Replay dari awal
+                transitionToScene(0);
+                return;
+            }
+            if (play) {
+                sceneTimer = setTimeout(function() {
+                    if (currentScene < storyScenes.length - 1) transitionToScene(currentScene + 1);
+                    else setPlaying(false);
+                }, storyScenes[currentScene].dur);
+            } else {
+                clearTimeout(sceneTimer);
+                clearTimeout(effectTimer);
+            }
+        }
+
+        function startStory() {
+            buildProgressDots();
+            document.getElementById('btn-play').addEventListener('click', function() { setPlaying(!isPlaying); });
+            document.getElementById('btn-skip-next').addEventListener('click', function() {
+                if (currentScene < storyScenes.length - 1) { if (isPlaying) transitionToScene(currentScene + 1); else jumpToScene(currentScene + 1); }
+            });
+            document.getElementById('btn-skip-back').addEventListener('click', function() {
+                if (currentScene > 0) { if (isPlaying) transitionToScene(currentScene - 1); else jumpToScene(currentScene - 1); }
+            });
+            document.getElementById('btn-reset').addEventListener('click', function() {
+                animateCameraTo([4, 4.5, 9], [0, 1.5, 0], 1500);
+                showStatus('⟳ Kamera direset', '#94a3b8');
+            });
+            transitionToScene(0);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            var time = clock.getElapsedTime();
+            controls.update();
+
+            // Kamera transition
+            if (camAnim) {
+                var t = Math.min((time - camAnim.t0) / camAnim.dur, 1);
+                var e = easeInOutCubic(t);
+                camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, e);
+                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, e);
+                if (t >= 1) camAnim = null;
+            }
+
+            if (smartaDevice) {
+                smartaDevice.position.y = 1.56 + Math.sin(time * 0.8) * 0.03;
+                var pl = smartaDevice.userData.pirLens;
+                var mc = smartaDevice.userData.mic;
+                if (pl) { var s1 = 1 + Math.sin(time * 2.2) * 0.15; pl.scale.setScalar(s1); pl.material.emissiveIntensity = 0.6 + Math.sin(time * 2.2) * 0.4; }
+                if (mc) { var s2 = 1 + Math.sin(time * 1.7 + 1) * 0.12; mc.scale.setScalar(s2); mc.material.emissiveIntensity = 0.5 + Math.sin(time * 1.7) * 0.4; }
+                if (smartaDevice.userData.beam) smartaDevice.userData.beam.material.opacity = 0.12 + Math.sin(time * 1.5) * 0.08;
+                var waves = smartaDevice.userData.soundWaves;
+                if (waves) waves.forEach(function(w, i) {
+                    var r = 0.3 + ((time * 0.8 + i * 0.33) % 1) * 1.4;
+                    w.scale.setScalar(r);
+                    w.material.opacity = 0.5 * (1 - ((time * 0.8 + i * 0.33) % 1));
+                });
+            }
+
+            if (person && person.userData.torso) {
+                // Nafas: dada mengembang (radial) + kepala terangkat sedikit
+                var br = 1 + Math.sin(time * 0.7) * 0.04;
+                person.userData.torso.scale.set(br, 1, br);
+                if (person.userData.head) {
+                    person.userData.head.position.y = person.userData.headBaseY + Math.sin(time * 0.7) * 0.012;
+                }
+            }
+
+            particles.forEach(function(p) {
+                var ud = p.userData;
+                if (!smartaDevice || !person || !person.userData.torso) return;
+                var origin, target;
+                if (ud.type === 'PIR') {
+                    origin = person.userData.torso;              // gerakan tubuh terdeteksi PIR
+                    target = smartaDevice.userData.pirLens;
+                } else {
+                    origin = person.userData.head;               // suara/snoring dari kepala
+                    target = smartaDevice.userData.mic;
+                }
+                var o = new THREE.Vector3(), t = new THREE.Vector3();
+                origin.getWorldPosition(o);
+                target.getWorldPosition(t);
+                // Aliran kontinu person → device, tanpa teleport acak
+                ud.progress += ud.speed;
+                if (ud.progress >= 1) ud.progress = 0;
+                var e = ud.progress;
+                p.position.lerpVectors(o, t, e);
+                // Goyangan halus di tengah perjalanan, fade in/out di ujung
+                var sway = Math.sin(e * Math.PI);
+                p.position.x += Math.sin(time * 3 + ud.wobble) * 0.04 * sway;
+                p.position.y += Math.cos(time * 2.5 + ud.wobble) * 0.04 * sway;
+                p.material.opacity = 0.9 * sway;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Start dengan fallback: kalau CDN gagal, tampilkan pesan
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'SCRIPT') {
+                document.getElementById('status').textContent = '⚠️ Gagal memuat 3D library — cek koneksi internet';
+                document.getElementById('status').style.color = '#f87171';
+            }
+        }, true);
+
+        if (typeof THREE === 'undefined') {
+            document.getElementById('status').textContent = '⚠️ THREE.js tidak termuat';
+            document.getElementById('loading').classList.add('hidden');
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
