@@ -274,7 +274,7 @@
     <script>
         // ===== GLOBAL STATE =====
         var scene, camera, renderer, controls, raycaster, pointer;
-        var smartaDevice, bed, person, nightstand, cloudNode, sensorLink, uploadLink;
+        var smartaDevice, bed, person, nightstand, cloudNode, sensorLink, uploadLink, pirCoverageField;
         var sensorLinks = [], smartphone, ldrSensor, tempSensor;
         var particles = [], interactables = [], processingBars = [], focusHalos = [];
         var processStage = 'setup';
@@ -790,28 +790,44 @@
             }
             smartaDevice.userData.leds = leds;
 
-            // Scanning beam (PIR ke arah kasur)
-            var beamGeo = new THREE.ConeGeometry(0.58, 2.9, 24, 1, true);
-            var beamMat = new THREE.MeshBasicMaterial({ color: 0x7785ff, transparent: true, opacity: 0.035, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
+            // Scanning beam PIR: tip dekat modul, cone melebar ke seluruh area kasur.
+            var beamGeo = new THREE.ConeGeometry(2.55, 4.4, 32, 1, true);
+            var beamMat = new THREE.MeshBasicMaterial({ color: 0x7785ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
-            beam.position.set(-0.22, -0.15, 1.7);
-            beam.rotation.x = Math.PI / 2;
+            beam.position.set(-0.22, -0.15, 2.47);
+            beam.rotation.x = -Math.PI / 2;
             smartaDevice.add(beam);
             smartaDevice.userData.beam = beam;
 
-            // Sound waves (mic)
+            // Sound waves KY-037: medan radial elips yang membesar di atas area tidur.
             var soundWaves = [];
-            for (var j = 0; j < 3; j++) {
+            for (var j = 0; j < 4; j++) {
                 var ring = new THREE.Mesh(
-                    new THREE.RingGeometry(0.18, 0.24, 24),
-                    new THREE.MeshBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.5 - j * 0.12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+                    new THREE.RingGeometry(1.15, 1.24, 32),
+                    new THREE.MeshBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.42 - j * 0.06, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
                 );
-                ring.position.set(0.22, -0.15, 0.5 + j * 0.6);
+                ring.position.set(0.22, -0.15, 0.38);
                 ring.rotation.x = Math.PI / 2;
+                ring.scale.set(0.72 + j * 0.16, 0.72 + j * 0.16, 1);
                 smartaDevice.add(ring);
                 soundWaves.push(ring);
             }
             smartaDevice.userData.soundWaves = soundWaves;
+
+            // Coverage zone PIR: representasi area deteksi gerakan di seluruh permukaan kasur.
+            pirCoverageField = new THREE.Group();
+            var coverageDisk = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.055, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+            coverageDisk.rotation.x = -Math.PI / 2;
+            coverageDisk.scale.set(1.55, 2.02, 1);
+            pirCoverageField.add(coverageDisk);
+            var coverageRing = new THREE.Mesh(new THREE.RingGeometry(0.98, 1.01, 64), new THREE.MeshBasicMaterial({ color: 0xa5b4fc, transparent: true, opacity: 0.26, side: THREE.DoubleSide, depthWrite: false }));
+            coverageRing.rotation.x = -Math.PI / 2;
+            coverageRing.scale.set(1.55, 2.02, 1);
+            pirCoverageField.add(coverageRing);
+            pirCoverageField.position.set(0, 1.38, 0.12);
+            pirCoverageField.visible = false;
+            pirCoverageField.renderOrder = 4;
+            scene.add(pirCoverageField);
 
             // Jalur proses tetap: sensing masuk ke SMARTA, lalu hasil naik ke cloud.
             sensorLink = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x7c83e8, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending }));
@@ -1119,9 +1135,11 @@
                     showStatus('PIR · KY-037 · LDR · MLX90614 terdeteksi', '#c4b5fd');
                     break;
                 case 'person':
-                    showStatus('User tertidur — empat sensor mulai membaca', '#c4b5fd');
+                    if (pirCoverageField) pirCoverageField.visible = true;
+                    showStatus('User tertidur — area kasur masuk zona deteksi', '#c4b5fd');
                     break;
                 case 'readings':
+                    if (pirCoverageField) pirCoverageField.visible = true;
                     labels.forEach(function(label) { label.visible = true; });
                     particles.forEach(function(p) { p.visible = true; p.userData.cloud = false; p.userData.processing = false; });
                     if (beam) beam.visible = true;
@@ -1166,6 +1184,7 @@
             var beam = smartaDevice && smartaDevice.userData.beam;
             var waves = smartaDevice && smartaDevice.userData.soundWaves;
             if (cloudNode) cloudNode.visible = false;
+            if (pirCoverageField) pirCoverageField.visible = false;
             if (sensorLink) sensorLink.visible = false;
             sensorLinks.forEach(function(link) { link.visible = false; });
             if (uploadLink) uploadLink.visible = false;
@@ -1327,6 +1346,12 @@
                         led.material.opacity = base + (i === activeLed ? Math.max(0, Math.sin(time * 1.8 + i)) * 0.35 : 0);
                     });
                 }
+                if (pirCoverageField && pirCoverageField.visible) {
+                    var fieldPulse = Math.sin(time * 1.35) * 0.5 + 0.5;
+                    pirCoverageField.scale.set(1 + fieldPulse * 0.018, 1 + fieldPulse * 0.018, 1);
+                    pirCoverageField.children[0].material.opacity = 0.045 + fieldPulse * 0.035;
+                    pirCoverageField.children[1].material.opacity = 0.18 + fieldPulse * 0.14;
+                }
                 if (smartaDevice.userData.beam) {
                     var beamActive = activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings';
                     smartaDevice.userData.beam.material.opacity = beamActive ? 0.08 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.012;
@@ -1387,8 +1412,9 @@
                 var waves = smartaDevice.userData.soundWaves;
                 if (waves) waves.forEach(function(w, i) {
                     var phase = (time * 0.42 + i * 0.23) % 1;
-                    w.scale.setScalar(0.58 + phase * 1.08);
-                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings') && w.visible ? 0.42 * (1 - phase) : 0;
+                    var waveScale = 0.8 + phase * 3.7;
+                    w.scale.set(waveScale * 0.86, waveScale * 1.12, 1);
+                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings') && w.visible ? 0.46 * (1 - phase) : 0;
                 });
             }
 
