@@ -141,6 +141,8 @@
         #scene-info .scene-num { font-size: 0.7rem; letter-spacing: 0.12em; color: #818cf8; text-transform: uppercase; margin-bottom: 4px; }
         #scene-info .scene-title { font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
         #scene-info .scene-desc { font-size: 0.8rem; color: #cbd5e1; line-height: 1.45; }
+        #scene-info .scene-narration { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,0.18); font-size: 0.76rem; color: #a7f3d0; line-height: 1.45; }
+        #scene-info .scene-narration::before { content: 'PENJELASAN'; display: block; margin-bottom: 3px; color: #64748b; font-size: 0.6rem; letter-spacing: 0.12em; font-weight: 700; }
 
         #progress-dots {
             position: fixed;
@@ -201,7 +203,7 @@
             #process-rail .process-step:nth-child(2) { display: none; }
             #process-rail .rail-track, #process-rail .rail-progress { top: 22px; }
             #flow-live { top: 128px; max-width: calc(100vw - 30px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            #scene-info { left: 12px; bottom: 78px; max-width: 245px; }
+            #scene-info { left: 12px; bottom: 78px; max-width: 255px; }
         }
 
         #stats-overlay {
@@ -248,9 +250,10 @@
 
     <!-- Phase 2: Scene Storyline UI -->
     <div id="scene-info">
-        <div class="scene-num" id="scene-num">Scene 1/8</div>
-        <div class="scene-title" id="scene-title">Meet SMARTA</div>
+        <div class="scene-num" id="scene-num">Scene 1/9</div>
+        <div class="scene-title" id="scene-title">Apa itu SMARTA?</div>
         <div class="scene-desc" id="scene-desc"></div>
+        <div class="scene-narration" id="scene-narration"></div>
     </div>
     <div id="progress-dots"></div>
     <div id="controls">
@@ -299,15 +302,15 @@
             var smartaBaseY = 1.56;
 
         var storyScenes = [
-            { id:1, title:'Apa itu SMARTA?', desc:'SMARTA adalah perangkat pemantau tidur berbasis ESP32 yang mengubah kejadian di kamar menjadi informasi.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
-            { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
-            { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
-            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', stage:'sensing', cam:{p:[2.4,2.75,4.2], t:[-0.15,1.28,-0.15]}, dur:6000, settle:1300, act:'event' },
-            { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
-            { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
-            { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
-            { id:9, title:'Demo Selesai', desc:'SMARTA menyajikan ringkasan monitoring sebagai laporan yang mudah dipahami.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
+            { id:1, title:'Apa itu SMARTA?', desc:'SMARTA adalah perangkat pemantau tidur berbasis ESP32 yang mengubah kejadian di kamar menjadi informasi.', narration:'Pertama, kenalkan SMARTA sebagai alat yang membaca kondisi user lalu mengirimkan hasilnya sebagai alert.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
+            { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', narration:'Keempat sensor bekerja bersama: gerakan, suara, cahaya kamar, dan suhu tubuh memberi konteks yang lebih lengkap.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
+            { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', narration:'Pada kondisi normal, user tetap tidur dan SMARTA memantau area kasur secara pasif.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
+            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Beam PIR terlihat menyapu area tidur dan KY-037 ikut memantau suara.', stage:'sensing', cam:{p:[3.6,3.0,5.6], t:[-0.8,1.35,0.35]}, dur:6000, settle:1300, act:'event' },
+            { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', narration:'Event belum menjadi keputusan. Semua pembacaan dikirim ke ESP32 agar dapat dibandingkan dan diproses bersama.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
+            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'ESP32 menjadi pusat keputusan lokal: data sensor digabungkan sebelum alert dikirim keluar perangkat.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
+            { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
+            { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
+            { id:9, title:'Demo Selesai', desc:'SMARTA menyajikan ringkasan monitoring sebagai laporan yang mudah dipahami.', narration:'Inilah hasil akhir demonstrasi: proses dari kejadian di kasur sampai laporan di smartphone.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -741,7 +744,7 @@
                 new THREE.SphereGeometry(0.13, 16, 16),
                 new THREE.MeshStandardMaterial({ color: 0x818cf8, emissive: 0x667eea, emissiveIntensity: 0.9, transparent: true, opacity: 0.86 })
             );
-            pirLens.position.set(-0.22, -0.15, 0.28);
+            pirLens.position.set(-0.22, -0.15, 0.36);
             smartaDevice.add(pirLens);
             smartaDevice.userData.pirLens = pirLens;
 
@@ -797,12 +800,15 @@
             smartaDevice.userData.leds = leds;
 
             // Scanning beam PIR: tip dekat modul, cone melebar ke seluruh area kasur.
-            var beamGeo = new THREE.ConeGeometry(2.55, 4.4, 32, 1, true);
+            var beamLength = 4.3;
+            var beamGeo = new THREE.ConeGeometry(1.35, beamLength, 32, 1, true);
             var beamMat = new THREE.MeshBasicMaterial({ color: 0x7785ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
-            beam.position.set(-0.22, -0.15, 2.47);
+            beam.position.set(-0.22, -0.15, 0.28 + beamLength * 0.5);
             beam.rotation.x = -Math.PI / 2;
             smartaDevice.add(beam);
+            beam.userData.beamLength = beamLength;
+            beam.userData.source = pirLens;
             smartaDevice.userData.beam = beam;
 
             // Sound waves KY-037: medan radial elips yang membesar di atas area tidur.
@@ -900,6 +906,27 @@
             addInteractable(smartaDevice, 'SMARTA Device', 'ESP32 + PIR + KY-037 + LDR + MLX90614. Klik untuk detail.', function() {
                 showStatus('🔍 SMARTA membaca gerak, suara, cahaya, dan suhu', '#818cf8');
             });
+        }
+
+        function updatePirBeam() {
+            if (!smartaDevice || !person || !person.userData.torso || !smartaDevice.userData.beam || !smartaDevice.userData.pirLens) return;
+            var beam = smartaDevice.userData.beam;
+            var source = smartaDevice.userData.pirLens.getWorldPosition(new THREE.Vector3());
+            var target = person.userData.torso.getWorldPosition(new THREE.Vector3());
+            var direction = target.clone().sub(source);
+            var distance = direction.length();
+            if (distance < 0.1) return;
+            var midpoint = source.clone().add(target).multiplyScalar(0.5);
+            smartaDevice.worldToLocal(midpoint);
+            beam.position.copy(midpoint);
+            var axis = source.clone().sub(target).normalize();
+            var worldQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
+            var parentQuaternion = smartaDevice.getWorldQuaternion(new THREE.Quaternion());
+            beam.quaternion.copy(parentQuaternion.invert().multiply(worldQuaternion));
+            beam.scale.set(1, distance / beam.userData.beamLength, 1);
+            beam.userData.distance = distance;
+            beam.userData.sourceWorld = source;
+            beam.userData.targetWorld = target;
         }
 
         function createFocusHalos() {
@@ -1029,6 +1056,7 @@
             document.getElementById('scene-num').textContent = 'Scene ' + scene.id + '/' + storyScenes.length;
             document.getElementById('scene-title').textContent = scene.title;
             document.getElementById('scene-desc').textContent = scene.desc;
+            document.getElementById('scene-narration').textContent = scene.narration || '';
             setProcessStage(scene.stage || 'setup');
             var flowCopy = {
                 setup: '<strong>START</strong> · SMARTA robot siap membaca kamar',
@@ -1336,6 +1364,7 @@
             }
 
             if (smartaDevice) {
+                updatePirBeam();
                 var activeAction = storyScenes[currentScene] && storyScenes[currentScene].act;
                 var focusActions = activeAction === 'pir' ? ['pir', 'person'] : activeAction === 'mic' ? ['mic', 'person'] : activeAction === 'sensors' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'readings' ? ['pir', 'mic', 'ldr', 'mlx'] : activeAction === 'event' ? ['person', 'pir', 'mic'] : activeAction === 'esp32' ? ['esp32'] : activeAction === 'cloud' ? ['phone'] : activeAction === 'report' ? ['phone'] : activeAction === 'person' ? ['person'] : [];
                 focusHalos.forEach(function(item) {
