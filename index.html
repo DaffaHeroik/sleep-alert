@@ -90,6 +90,7 @@
         #tooltip .name { font-weight: 700; color: #818cf8; margin-bottom: 4px; }
         #tooltip .desc { color: #cbd5e1; font-size: 0.8rem; line-height: 1.4; }
         #status {
+            display: none;
             position: fixed;
             bottom: 86px;
             left: 50%;
@@ -229,7 +230,7 @@
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
     <div id="info">
         <h1>💤 SLEEP ALERT - SMARTA</h1>
-        <div id="hint">🎬 Mode demo SMARTA · lihat bagaimana sensor mengubah kejadian menjadi alert tidur</div>
+        <div id="hint">Demo otomatis · gunakan kontrol di bawah</div>
     </div>
         <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
@@ -1280,36 +1281,39 @@
         }
 
         function setPlaying(play) {
-            isPlaying = play;
-            document.getElementById('btn-play').textContent = play ? '⏸' : '▶';
-            if (play && currentScene === storyScenes.length - 1) {
-                // Replay dari awal
+            clearTimeout(sceneTimer);
+            isPlaying = !!play;
+            document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶';
+            if (!isPlaying) {
+                clearTimeout(effectTimer);
+                return;
+            }
+            if (currentScene === storyScenes.length - 1) {
                 transitionToScene(0);
                 return;
             }
-            if (play) {
-                sceneTimer = setTimeout(function() {
-                    if (currentScene < storyScenes.length - 1) transitionToScene(currentScene + 1);
-                    else setPlaying(false);
-                }, storyScenes[currentScene].dur);
-            } else {
-                clearTimeout(sceneTimer);
-                clearTimeout(effectTimer);
-            }
+            sceneTimer = setTimeout(function() {
+                if (isPlaying) transitionToScene(currentScene + 1);
+            }, storyScenes[currentScene].dur);
+        }
+
+        function moveScene(delta) {
+            var next = (currentScene + delta + storyScenes.length) % storyScenes.length;
+            if (isPlaying) transitionToScene(next);
+            else jumpToScene(next);
         }
 
         function startStory() {
             buildProgressDots();
             document.getElementById('btn-play').addEventListener('click', function() { setPlaying(!isPlaying); });
-            document.getElementById('btn-skip-next').addEventListener('click', function() {
-                if (currentScene < storyScenes.length - 1) { if (isPlaying) transitionToScene(currentScene + 1); else jumpToScene(currentScene + 1); }
-            });
-            document.getElementById('btn-skip-back').addEventListener('click', function() {
-                if (currentScene > 0) { if (isPlaying) transitionToScene(currentScene - 1); else jumpToScene(currentScene - 1); }
-            });
+            document.getElementById('btn-skip-next').addEventListener('click', function() { moveScene(1); });
+            document.getElementById('btn-skip-back').addEventListener('click', function() { moveScene(-1); });
             document.getElementById('btn-reset').addEventListener('click', function() {
-                transitionToScene(currentScene);
-                showStatus('🎬 Kamera kembali mengikuti shot scene aktif', '#94a3b8');
+                var wasPlaying = isPlaying;
+                clearTimeout(sceneTimer);
+                clearTimeout(effectTimer);
+                if (wasPlaying) transitionToScene(currentScene);
+                else jumpToScene(currentScene);
             });
             transitionToScene(0);
         }
