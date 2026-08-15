@@ -297,11 +297,11 @@
         var smartaBaseY = 1.56;
 
         var storyScenes = [
-            { id:1, title:'Meet SMARTA', desc:'Mini robot dengan ESP32 dan empat sensor kualitas tidur.', stage:'setup', cam:{p:[-4.8,2.7,4.8], t:[-2.45,1.55,1.6]}, dur:5600, settle:1500, act:'meet' },
-            { id:2, title:'Sensor Array', desc:'PIR, KY-037, LDR, dan MLX90614 siap membaca kamar.', stage:'sensing', cam:{p:[-4.5,2.8,4.5], t:[-2.55,1.55,1.55]}, dur:6200, settle:1400, act:'sensors' },
+            { id:1, title:'Meet SMARTA', desc:'Mini robot dengan ESP32 dan empat sensor kualitas tidur.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
+            { id:2, title:'Sensor Array', desc:'PIR, KY-037, LDR, dan MLX90614 siap membaca kamar.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6200, settle:1400, act:'sensors' },
             { id:3, title:'User Falls Asleep', desc:'SMARTA diarahkan ke user yang mulai tertidur.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
-            { id:4, title:'Four Readings', desc:'Empat sensor mengirim gerak, suara, cahaya, dan suhu.', stage:'sensing', cam:{p:[-4.7,3.0,4.8], t:[-2.35,1.5,1.55]}, dur:6400, settle:1450, act:'readings' },
-            { id:5, title:'ESP32 Processing', desc:'ESP32 menggabungkan semua pembacaan menjadi data tidur.', stage:'processing', cam:{p:[-4.9,3.1,4.6], t:[-2.35,1.5,1.5]}, dur:6000, settle:1350, act:'esp32' },
+            { id:4, title:'Four Readings', desc:'Empat sensor mengirim gerak, suara, cahaya, dan suhu.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
+            { id:5, title:'ESP32 Processing', desc:'ESP32 menggabungkan semua pembacaan menjadi data tidur.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
             { id:6, title:'Wi-Fi Upload', desc:'Data yang sudah diringkas dikirim ke smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:7, title:'Smartphone Dashboard', desc:'Grafik gerak, suara, cahaya, dan suhu mulai tampil.', stage:'complete', cam:{p:[2.2,3.2,5.8], t:[0.15,2.0,0.4]}, dur:6400, settle:1450, act:'report' },
             { id:8, title:'Sleep Analysis Complete', desc:'SMARTA selesai menyajikan ringkasan kualitas tidur.', stage:'complete', cam:{p:[1.8,3.4,6.8], t:[-0.25,1.55,0.55]}, dur:7200, settle:1600, act:'stats' }
@@ -837,8 +837,12 @@
             // Posisi SMARTA di ATAS meja (permukaan y=1.08 + setengah casing 0.475 → y ≈ 1.56)
             smartaDevice.position.set(-2.8, 1.56, 1.6);
             smartaDevice.scale.setScalar(1.22);
-            // Wajah menghadap shot utama; kamera scripted selalu berada di sisi depan-kiri device.
-            smartaDevice.rotation.y = -0.55;
+            // Sisi sensor adalah local +Z. Arahkan local +Z ke torso user di atas kasur.
+            var smartaWorldX = -2.8;
+            var smartaWorldZ = 1.6;
+            var userAimX = 0.45;
+            var userAimZ = -0.75;
+            smartaDevice.rotation.y = Math.atan2(userAimX - smartaWorldX, userAimZ - smartaWorldZ);
             scene.add(smartaDevice);
 
             // Smartphone dashboard: endpoint nyata untuk hasil monitoring SMARTA.
@@ -1324,7 +1328,8 @@
                     });
                 }
                 if (smartaDevice.userData.beam) {
-                    smartaDevice.userData.beam.material.opacity = activeAction === 'pir' ? 0.055 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.06 : 0.025;
+                    var beamActive = activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings';
+                    smartaDevice.userData.beam.material.opacity = beamActive ? 0.08 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.012;
                 }
                 if (cloudNode && cloudNode.visible) {
                     cloudNode.position.y = 2.55 + Math.sin(time * 0.8) * 0.025;
@@ -1383,7 +1388,7 @@
                 if (waves) waves.forEach(function(w, i) {
                     var phase = (time * 0.42 + i * 0.23) % 1;
                     w.scale.setScalar(0.58 + phase * 1.08);
-                    w.material.opacity = activeAction === 'mic' && w.visible ? 0.42 * (1 - phase) : 0;
+                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings') && w.visible ? 0.42 * (1 - phase) : 0;
                 });
             }
 
