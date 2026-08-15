@@ -232,8 +232,7 @@
 <body>
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
     <div id="info">
-        <h1>💤 SLEEP ALERT - SMARTA</h1>
-        <div id="hint">Demo otomatis · gunakan kontrol di bawah</div>
+        <h1>SMARTA</h1>
     </div>
         <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
@@ -245,9 +244,9 @@
             <div class="process-step" data-stage="complete"><span class="step-dot">5</span><span>Report</span></div>
         </div>
     </div>
-    <div id="flow-live" aria-live="polite"><strong>START</strong> · SMARTA siap membaca kamar</div>
+    <div id="flow-live" aria-live="polite"><strong>SETUP</strong> · Perangkat siap memantau area tidur</div>
     <div id="tooltip"></div>
-    <div id="status">Kamar siap — klik benda untuk interaksi</div>
+    <div id="status">SMARTA siap memantau area tidur</div>
 
     <!-- Phase 2: Scene Storyline UI -->
     <div id="scene-info">
@@ -321,7 +320,7 @@
             clearTimeout(statusTimer);
             statusTimer = setTimeout(function() {
                 statusEl.style.color = '#10b981';
-                statusEl.textContent = 'Kamar siap — klik benda untuk interaksi';
+                statusEl.textContent = 'SMARTA siap memantau area tidur';
             }, 2600);
         }
 
@@ -931,7 +930,7 @@
             scene.add(cloudNode);
 
             addInteractable(smartaDevice, 'SMARTA Device', 'ESP32 + PIR + KY-037 + LDR + MLX90614. Klik untuk detail.', function() {
-                showStatus('🔍 SMARTA membaca gerak, suara, cahaya, dan suhu', '#818cf8');
+                    showStatus('SMARTA membaca empat parameter tidur', '#818cf8');
             });
         }
 
@@ -1086,15 +1085,15 @@
             document.getElementById('scene-narration').textContent = scene.narration || '';
             setProcessStage(scene.stage || 'setup');
             var flowCopy = {
-                setup: '<strong>START</strong> · SMARTA robot siap membaca kamar',
-                sensing: '<strong>SENSING</strong> · PIR + KY-037 + LDR + MLX90614',
-                processing: '<strong>PROCESSING</strong> · ESP32 menggabungkan 4 pembacaan',
-                uploading: '<strong>UPLOAD</strong> · ESP32 → WiFi → smartphone',
-                complete: '<strong>REPORT</strong> · grafik tidur tampil di smartphone'
+                setup: '<strong>SETUP</strong> · Perangkat siap memantau area tidur',
+                sensing: '<strong>READING</strong> · Empat sensor mengamati user dan kamar',
+                processing: '<strong>PROCESSING</strong> · ESP32 merangkum pembacaan sensor',
+                uploading: '<strong>UPLOAD</strong> · Ringkasan dikirim lewat Wi-Fi',
+                complete: '<strong>REPORT</strong> · Hasil monitoring tersedia di smartphone'
             };
             var flowLive = document.getElementById('flow-live');
             if (flowLive) {
-                flowLive.innerHTML = scene.act === 'event' ? '<strong>SIMULATION</strong> · gerakan jatuh terdeteksi di area tidur' : flowCopy[scene.stage || 'setup'];
+                flowLive.innerHTML = scene.act === 'event' ? '<strong>EVENT</strong> · Gerakan mendadak memicu pemeriksaan' : flowCopy[scene.stage || 'setup'];
                 flowLive.style.opacity = '0';
                 flowLive.style.transform = 'translateX(-50%) translateY(-4px)';
                 setTimeout(function() {
@@ -1259,7 +1258,7 @@
                     showStatus('Kamera mendekati dashboard smartphone...', '#7dd3fc');
                     break;
                 default:
-                    showStatus('SMARTA — intelligent sleep monitoring', '#a5b4fc');
+                    showStatus('SMARTA — sistem pemantauan tidur aktif', '#a5b4fc');
             }
         }
 
