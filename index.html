@@ -293,8 +293,9 @@
         var camAnim = null; // { startPos, startTarget, endPos, endTarget, arc, t0, dur }
         var dotEls = [];
         var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        var storyRuntime = { startedAt: 0, actionStarted: false };
-        var smartaBaseY = 1.56;
+            var storyRuntime = { startedAt: 0, actionStarted: false };
+            var phoneMotion = { active: false, startedAt: 0, start: new THREE.Vector3(1.65, 1.12, 3.15), end: new THREE.Vector3(1.28, 1.58, 2.48), startScale: 0.16, endScale: 0.34 };
+            var smartaBaseY = 1.56;
 
         var storyScenes = [
             { id:1, title:'Meet SMARTA', desc:'Mini robot dengan ESP32 dan empat sensor kualitas tidur.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
@@ -302,9 +303,9 @@
             { id:3, title:'User Falls Asleep', desc:'SMARTA diarahkan ke user yang mulai tertidur.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
             { id:4, title:'Four Readings', desc:'Empat sensor mengirim gerak, suara, cahaya, dan suhu.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
             { id:5, title:'ESP32 Processing', desc:'ESP32 menggabungkan semua pembacaan menjadi data tidur.', stage:'processing', cam:{p:[1.5,2.75,-1.35], t:[-2.28,1.5,1.28]}, dur:6000, settle:1350, act:'esp32' },
-            { id:6, title:'Wi-Fi Upload', desc:'Data yang sudah diringkas dikirim ke smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
-            { id:7, title:'Smartphone Dashboard', desc:'Grafik gerak, suara, cahaya, dan suhu mulai tampil.', stage:'complete', cam:{p:[2.2,3.2,5.8], t:[0.15,2.0,0.4]}, dur:6400, settle:1450, act:'report' },
-            { id:8, title:'Sleep Analysis Complete', desc:'SMARTA selesai menyajikan ringkasan kualitas tidur.', stage:'complete', cam:{p:[1.8,3.4,6.8], t:[-0.25,1.55,0.55]}, dur:7200, settle:1600, act:'stats' }
+            { id:6, title:'Wi-Fi Upload', desc:'ESP32 mengirim data; smartphone mulai menerima paket.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
+            { id:7, title:'Smartphone Dashboard', desc:'Setelah data tiba, grafik gerak, suara, cahaya, dan suhu tampil.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
+            { id:8, title:'Sleep Analysis Complete', desc:'SMARTA selesai menyajikan ringkasan kualitas tidur.', stage:'complete', cam:{p:[2.8,3.15,6.3], t:[0.55,1.48,1.85]}, dur:7200, settle:1600, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -885,8 +886,9 @@
             cloudNode.add(chartLine);
             cloudNode.userData.hubBars = hubBars;
             cloudNode.userData.phoneScreen = phoneScreen;
-            cloudNode.position.set(0.25, 2.55, -0.1);
+            cloudNode.position.copy(phoneMotion.end);
             cloudNode.rotation.y = -0.12;
+            cloudNode.scale.setScalar(phoneMotion.endScale);
             cloudNode.visible = false;
             scene.add(cloudNode);
 
@@ -1065,7 +1067,7 @@
             if (sensorLink) sensorLink.visible = false;
             sensorLinks.forEach(function(link) { link.visible = index >= 1 && index <= 2; });
             if (uploadLink) uploadLink.visible = index >= 3;
-            if (cloudNode) cloudNode.visible = index >= 3;
+            if (cloudNode) cloudNode.visible = index >= 4 || (index === 3 && phoneMotion.active);
         }
 
         // Kamera bergerak pada arc kecil agar perpindahan terasa seperti dolly, bukan teleport.
@@ -1108,6 +1110,7 @@
             var leds = smartaDevice.userData.leds || [];
 
             storyRuntime.actionStarted = true;
+            phoneMotion.active = false;
             if (beam) beam.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
             particles.forEach(function(p) { p.visible = false; p.userData.progress = Math.random() * 0.22; p.userData.cloud = false; p.userData.processing = false; });
@@ -1158,17 +1161,23 @@
                     break;
                 case 'cloud':
                     particles.forEach(function(p) { p.visible = true; p.userData.cloud = true; p.userData.processing = false; });
-                    if (cloudNode) cloudNode.visible = true;
+                    phoneMotion.active = true;
+                    phoneMotion.startedAt = clock.getElapsedTime();
+                    if (cloudNode) { cloudNode.position.copy(phoneMotion.start); cloudNode.scale.setScalar(phoneMotion.startScale); cloudNode.visible = true; }
                     if (screen) screen.material.emissiveIntensity = 1.05;
-                    showStatus('Data SMARTA dikirim melalui WiFi ke smartphone', '#7dd3fc');
+                    showStatus('ESP32 mengirim paket WiFi — smartphone menerima perlahan', '#7dd3fc');
                     break;
                 case 'report':
-                    if (cloudNode) cloudNode.visible = true;
+                    phoneMotion.active = true;
+                    phoneMotion.startedAt = clock.getElapsedTime() - 2.2;
+                    if (cloudNode) { cloudNode.position.copy(phoneMotion.end); cloudNode.scale.setScalar(phoneMotion.endScale); cloudNode.visible = true; }
                     if (screen) screen.material.emissiveIntensity = 0.9;
-                    showStatus('Dashboard smartphone menggambar grafik tidur', '#7dd3fc');
+                    showStatus('Data sudah tiba — dashboard smartphone menggambar grafik tidur', '#7dd3fc');
                     break;
                 case 'stats':
-                    if (cloudNode) cloudNode.visible = true;
+                    phoneMotion.active = true;
+                    phoneMotion.startedAt = clock.getElapsedTime() - 2.2;
+                    if (cloudNode) { cloudNode.position.copy(phoneMotion.end); cloudNode.scale.setScalar(phoneMotion.endScale); cloudNode.visible = true; }
                     var ov = document.getElementById('stats-overlay');
                     ov.classList.add('show');
                     showStatus('Analisis tidur SMARTA selesai', '#86efac');
@@ -1183,7 +1192,8 @@
             ov.classList.remove('show');
             var beam = smartaDevice && smartaDevice.userData.beam;
             var waves = smartaDevice && smartaDevice.userData.soundWaves;
-            if (cloudNode) cloudNode.visible = false;
+            phoneMotion.active = false;
+            if (cloudNode) { cloudNode.position.copy(phoneMotion.end); cloudNode.scale.setScalar(phoneMotion.endScale); cloudNode.visible = false; }
             if (pirCoverageField) pirCoverageField.visible = false;
             if (sensorLink) sensorLink.visible = false;
             sensorLinks.forEach(function(link) { link.visible = false; });
@@ -1357,7 +1367,17 @@
                     smartaDevice.userData.beam.material.opacity = beamActive ? 0.08 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.012;
                 }
                 if (cloudNode && cloudNode.visible) {
-                    cloudNode.position.y = 2.55 + Math.sin(time * 0.8) * 0.025;
+                    var phoneT = phoneMotion.active ? Math.max(0, Math.min(1, (time - phoneMotion.startedAt - 0.72) / 1.55)) : 1;
+                    var phoneE = easeOutQuint(phoneT);
+                    if (phoneMotion.active && activeAction === 'cloud') {
+                        cloudNode.position.lerpVectors(phoneMotion.start, phoneMotion.end, phoneE);
+                        cloudNode.scale.setScalar(phoneMotion.startScale + (phoneMotion.endScale - phoneMotion.startScale) * phoneE);
+                        cloudNode.rotation.y = -0.12 + (1 - phoneE) * 0.16;
+                    } else {
+                        cloudNode.position.copy(phoneMotion.end);
+                        cloudNode.scale.setScalar(phoneMotion.endScale);
+                        cloudNode.rotation.y = -0.12;
+                    }
                     var hubBars = cloudNode.userData.hubBars || [];
                     hubBars.forEach(function(bar, i) {
                         var hubPulse = Math.sin(time * 2.4 - i * 0.65) * 0.5 + 0.5;
