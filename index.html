@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #12162a;
+            background: #0b1020;
             color: #fff;
             overflow: hidden;
         }
@@ -19,9 +19,9 @@
             transform: translateX(-50%);
             text-align: center;
             z-index: 100;
-            background: rgba(0,0,0,0.75);
-            padding: 16px 36px;
-            border-radius: 15px;
+            background: linear-gradient(180deg, rgba(8,13,29,0.92), rgba(8,13,29,0.68));
+            padding: 13px 24px;
+            border-radius: 18px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.12);
             pointer-events: none;
@@ -50,7 +50,7 @@
         #tooltip .desc { color: #cbd5e1; font-size: 0.8rem; line-height: 1.4; }
         #status {
             position: fixed;
-            bottom: 20px;
+            bottom: 86px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
@@ -76,6 +76,9 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
 
         /* ===== SCENE UI (Phase 2) ===== */
         #scene-info {
@@ -89,6 +92,7 @@
             border: 1px solid rgba(102,126,234,0.35);
             backdrop-filter: blur(8px);
             max-width: 300px;
+            bottom: 82px;
             pointer-events: none;
             transition: opacity 0.4s;
         }
@@ -205,7 +209,7 @@
     <script>
         // ===== GLOBAL STATE =====
         var scene, camera, renderer, controls, raycaster, pointer;
-        var smartaDevice, bed, person, nightstand;
+        var smartaDevice, bed, person, nightstand, cloudNode;
         var particles = [], interactables = [];
         var clock = new THREE.Clock();
         var tooltip = document.getElementById('tooltip');
@@ -218,18 +222,21 @@
         var isPlaying = true;
         var sceneTimer = null;
         var effectTimer = null; // timeout executeSceneAction yang tertunda (harus dibatalkan saat lompat scene)
-        var camAnim = null; // { startPos, startTarget, endPos, endTarget, t0, dur }
+        var camAnim = null; // { startPos, startTarget, endPos, endTarget, arc, t0, dur }
         var dotEls = [];
+        var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var storyRuntime = { startedAt: 0, actionStarted: false };
+        var smartaBaseY = 1.56;
 
         var storyScenes = [
-            { id:1, title:'Meet SMARTA', desc:'IoT device: ESP32 + PIR + Mic untuk monitoring tidur.', cam:{p:[-4.4,2.3,3.1], t:[-2.8,1.5,1.6]}, dur:4000, act:'meet' },
-            { id:2, title:'Bedroom Setup', desc:'SMARTA memantau dari meja nakas.', cam:{p:[-2,3.5,7.5], t:[0,1.2,0]}, dur:4000, act:'wide' },
-            { id:3, title:'User Falls Asleep', desc:'Monitoring dimulai otomatis saat user tidur.', cam:{p:[2.4,2.2,4.2], t:[0,1.3,0]}, dur:4000, act:'person' },
-            { id:4, title:'PIR Motion Detection', desc:'Sensor inframerah melacak gerakan tubuh di kasur.', cam:{p:[-0.5,2.1,3.6], t:[-1.9,1.2,0.8]}, dur:5000, act:'pir' },
-            { id:5, title:'Sound Monitoring', desc:'Mic menangkap noise & snoring di sekitar.', cam:{p:[-3.5,1.8,2.9], t:[-2.6,1.4,1.3]}, dur:5000, act:'mic' },
-            { id:6, title:'ESP32 Processing', desc:'Data diproses lokal tiap 30 menit.', cam:{p:[-2.1,1.9,2.7], t:[-2.7,1.5,1.7]}, dur:4500, act:'esp32' },
-            { id:7, title:'Cloud Transmission', desc:'Hasil diunggah aman via WiFi ke server.', cam:{p:[0.5,6,7], t:[0,2.5,0]}, dur:4500, act:'cloud' },
-            { id:8, title:'Sleep Analysis Complete', desc:'Laporan lengkap tersedia di aplikasi mobile.', cam:{p:[0.5,3.5,8.5], t:[0,1.3,0]}, dur:6000, act:'stats' }
+            { id:1, title:'Meet SMARTA', desc:'ESP32, PIR, dan mic bekerja dalam satu perangkat kecil.', cam:{p:[-4.1,2.05,3.05], t:[-2.8,1.54,1.6]}, dur:5600, settle:1500, act:'meet' },
+            { id:2, title:'Bedroom Setup', desc:'SMARTA ditempatkan di nakas, menghadap area tidur.', cam:{p:[3.8,3.45,7.8], t:[0,1.18,0]}, dur:5200, settle:1250, act:'wide' },
+            { id:3, title:'User Falls Asleep', desc:'Napas melambat. Monitoring dimulai saat kamar tenang.', cam:{p:[2.65,1.92,3.25], t:[0.05,1.33,-0.35]}, dur:5800, settle:1350, act:'person' },
+            { id:4, title:'PIR Motion Detection', desc:'PIR mengunci gerakan kecil pada dada dan bahu.', cam:{p:[-1.1,1.72,2.65], t:[-0.55,1.34,0.08]}, dur:6200, settle:1450, act:'pir' },
+            { id:5, title:'Sound Monitoring', desc:'Gelombang suara bergerak dari kepala menuju mic.', cam:{p:[-3.65,1.85,3.05], t:[-1.2,1.42,0.72]}, dur:6200, settle:1450, act:'mic' },
+            { id:6, title:'ESP32 Processing', desc:'Data diringkas secara lokal sebelum dikirim.', cam:{p:[-2.55,1.78,2.35], t:[-2.7,1.55,1.6]}, dur:5800, settle:1350, act:'esp32' },
+            { id:7, title:'Cloud Transmission', desc:'Paket data naik melalui WiFi menuju server aman.', cam:{p:[0.65,3.75,6.7], t:[-0.25,1.82,0.7]}, dur:6200, settle:1600, act:'cloud' },
+            { id:8, title:'Sleep Analysis Complete', desc:'Ringkasan tidur tampil setelah semua data selesai diproses.', cam:{p:[0.75,3.15,7.55], t:[0,1.32,0]}, dur:7200, settle:1700, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -256,8 +263,8 @@
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x12162a);
-            scene.fog = new THREE.Fog(0x12162a, 15, 40);
+            scene.background = new THREE.Color(0x0b1020);
+            scene.fog = new THREE.Fog(0x0b1020, 18, 42);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(4, 4.5, 9);
@@ -266,6 +273,9 @@
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 0.86;
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
@@ -284,16 +294,16 @@
             pointer = new THREE.Vector2();
 
             // Lighting
-            var ambient = new THREE.AmbientLight(0x8899cc, 0.6);
+            var ambient = new THREE.AmbientLight(0x7180ad, 0.56);
             scene.add(ambient);
 
-            ceilingLight = new THREE.PointLight(0xfff4d6, 1.6, 18, 2);
+            ceilingLight = new THREE.PointLight(0xffe6b8, 0.82, 16, 2);
             ceilingLight.position.set(0, 5.5, 0);
             ceilingLight.castShadow = true;
             ceilingLight.shadow.mapSize.set(1024, 1024);
             scene.add(ceilingLight);
 
-            var moonlight = new THREE.DirectionalLight(0x6b8cff, 0.9);
+            var moonlight = new THREE.DirectionalLight(0x6b8cff, 0.48);
             moonlight.position.set(-6, 6, -6);
             moonlight.castShadow = true;
             moonlight.shadow.mapSize.set(2048, 2048);
@@ -399,7 +409,9 @@
             // Jendela
             var winGroup = new THREE.Group();
             winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.6, 0.12), matWoodDark()));
-            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 0.04), new THREE.MeshStandardMaterial({ color: 0x1a2b4a, roughness: 0.1, metalness: 0.3, emissive: 0x3a5ab0, emissiveIntensity: 0.5 })).position.set(0,0,0.05));
+            var windowGlass = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 0.04), new THREE.MeshStandardMaterial({ color: 0x1a2b4a, roughness: 0.1, metalness: 0.3, emissive: 0x3a5ab0, emissiveIntensity: 0.5 }));
+            windowGlass.position.set(0, 0, 0.05);
+            winGroup.add(windowGlass);
             winGroup.position.set(-3.5, 2.6, -6.9);
             room.add(winGroup);
 
@@ -450,15 +462,17 @@
             pillow2.castShadow = true;
             bed.add(pillow2);
 
-            var blanket = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.34, 2.6), matFabric(0x667eea));
-            blanket.position.set(0, 1.3, 0.75);
+            var blanket = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.25, 2.6), matFabric(0x667eea));
+            blanket.position.set(0, 1.2, 0.75);
             blanket.castShadow = true;
             bed.add(blanket);
             var fold = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 0.7), matFabric(0x7788ee));
-            fold.position.set(0, 1.38, 1.62);
+            fold.position.set(0, 1.3, 1.62);
             fold.rotation.x = -0.15;
             fold.castShadow = true;
             bed.add(fold);
+            bed.userData.blanket = blanket;
+            bed.userData.fold = fold;
 
             scene.add(bed);
             addInteractable(bed, 'Kasur', 'Kasur kayu dengan selimut biru. User tidur di atasnya.', function() {
@@ -479,6 +493,13 @@
             person.add(torso);
             person.userData.torso = torso;
 
+            var neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.2, 12), skin);
+            neck.rotation.x = Math.PI / 2;
+            neck.position.set(0.55, 1.14, -1.05);
+            neck.castShadow = true;
+            person.add(neck);
+            person.userData.neck = neck;
+
             var head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 20), skin);
             head.position.set(0.55, 1.16, -1.3);          // bersandar di bantal (top bantal y≈1.36)
             head.castShadow = true;
@@ -496,19 +517,19 @@
             var armGeo = new THREE.CapsuleGeometry(0.09, 0.5, 4, 8);
             var armL = new THREE.Mesh(armGeo, skin);
             armL.rotation.x = Math.PI / 2;
-            armL.position.set(0.12, 1.52, -0.15);
+            armL.position.set(0.12, 1.38, -0.15);
             armL.castShadow = true;
             person.add(armL);
             var armR = new THREE.Mesh(armGeo, skin);
             armR.rotation.x = Math.PI / 2;
-            armR.position.set(0.8, 1.52, -0.15);
+            armR.position.set(0.8, 1.38, -0.15);
             armR.castShadow = true;
             person.add(armR);
             var handL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), skin);
-            handL.position.set(0.12, 1.52, 0.15);
+            handL.position.set(0.12, 1.38, 0.15);
             person.add(handL);
             var handR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), skin);
-            handR.position.set(0.8, 1.52, 0.15);
+            handR.position.set(0.8, 1.38, 0.15);
             person.add(handR);
 
             scene.add(person);
@@ -578,10 +599,11 @@
 
             var screen = new THREE.Mesh(
                 new THREE.BoxGeometry(0.68, 0.28, 0.06),
-                new THREE.MeshStandardMaterial({ color: 0x1e3a8a, emissive: 0x3b82f6, emissiveIntensity: 0.9, roughness: 0.3 })
+                new THREE.MeshStandardMaterial({ color: 0x1e3a8a, emissive: 0x3b82f6, emissiveIntensity: 0.55, roughness: 0.3 })
             );
             screen.position.set(0, 0.4, 0.26);
             smartaDevice.add(screen);
+            smartaDevice.userData.screen = screen;
 
             var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             var eye1 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), eyeMat);
@@ -619,15 +641,18 @@
             smartaDevice.userData.mic = mic;
 
             var ledColors = [0x10b981, 0xfbbf24, 0x3b82f6];
+            var leds = [];
             for (var i = 0; i < 3; i++) {
                 var led = new THREE.Mesh(new THREE.CircleGeometry(0.03, 10), new THREE.MeshBasicMaterial({ color: ledColors[i], transparent: true, opacity: 0.9 }));
                 led.position.set(-0.18 + i * 0.18, -0.42, 0.3);
                 smartaDevice.add(led);
+                leds.push(led);
             }
+            smartaDevice.userData.leds = leds;
 
             // Scanning beam (PIR ke arah kasur)
-            var beamGeo = new THREE.ConeGeometry(0.9, 3.2, 20, 1, true);
-            var beamMat = new THREE.MeshBasicMaterial({ color: 0x667eea, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+            var beamGeo = new THREE.ConeGeometry(0.58, 2.9, 24, 1, true);
+            var beamMat = new THREE.MeshBasicMaterial({ color: 0x8b9cff, transparent: true, opacity: 0.075, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
             beam.position.set(-0.22, -0.15, 1.7);
             beam.rotation.x = Math.PI / 2;
@@ -650,10 +675,20 @@
 
             // Posisi SMARTA di ATAS meja (permukaan y=1.08 + setengah casing 0.475 → y ≈ 1.56)
             smartaDevice.position.set(-2.8, 1.56, 1.6);
-            // Hadap kasur: local +Z diputar menuju bed center (0,0) → θ = atan2(dx, dz)
-            // = atan2(2.8, -1.6) ≈ 2.09 rad → muka + beam PIR mengarah ke kasur, bukan dinding
+            // Hadap kasur: local +Z diputar menuju bed center (0,0).
             smartaDevice.rotation.y = Math.atan2(0 - (-2.8), 0 - 1.6);
             scene.add(smartaDevice);
+
+            // Anchor visual untuk transmisi cloud: target jelas, tenang, dan tidak mengambil alih frame.
+            cloudNode = new THREE.Group();
+            var cloudCore = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.82 }));
+            var cloudRing = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.018, 8, 28), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55 }));
+            cloudRing.rotation.x = Math.PI / 2;
+            cloudNode.add(cloudCore);
+            cloudNode.add(cloudRing);
+            cloudNode.position.set(-0.2, 4.35, -0.15);
+            cloudNode.visible = false;
+            scene.add(cloudNode);
 
             addInteractable(smartaDevice, 'SMARTA Device', 'IoT: ESP32 + PIR + Mic. Klik untuk fokus.', function() {
                 controls.target.set(-2.8, 1.58, 1.6);
@@ -672,8 +707,9 @@
                 p.userData = {
                     type: isPir ? 'PIR' : 'MIC',
                     progress: Math.random(),          // fase acak agar tidak serentak (sinkron)
-                    speed: 0.005 + Math.random() * 0.006,
-                    wobble: Math.random() * Math.PI * 2
+                    speed: 0.0038 + Math.random() * 0.0034,
+                    wobble: Math.random() * Math.PI * 2,
+                    lane: (Math.random() - 0.5) * 0.16
                 };
                 scene.add(p);
                 particles.push(p);
@@ -758,20 +794,27 @@
             });
         }
 
-        // Animasi kamera: lerp posisi + target, easeInOutCubic
-        function animateCameraTo(pos, target, dur) {
+        // Kamera bergerak pada arc kecil agar perpindahan terasa seperti dolly, bukan teleport.
+        function animateCameraTo(pos, target, dur, arcHeight) {
+            var endPos = new THREE.Vector3(pos[0], pos[1], pos[2]);
+            var distance = camera.position.distanceTo(endPos);
             camAnim = {
                 startPos: camera.position.clone(),
                 startTarget: controls.target.clone(),
-                endPos: new THREE.Vector3(pos[0], pos[1], pos[2]),
+                endPos: endPos,
                 endTarget: new THREE.Vector3(target[0], target[1], target[2]),
+                arc: arcHeight === undefined ? Math.min(0.7, 0.16 + distance * 0.045) : arcHeight,
                 t0: clock.getElapsedTime(),
-                dur: dur || 2000
+                dur: prefersReducedMotion ? 1 : (dur || 2000)
             };
         }
 
         function easeInOutCubic(t) {
             return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function easeOutQuint(t) {
+            return 1 - Math.pow(1 - t, 5);
         }
 
         function executeSceneAction(act) {
@@ -780,45 +823,61 @@
             var mc = smartaDevice.userData.mic;
             var beam = smartaDevice.userData.beam;
             var waves = smartaDevice.userData.soundWaves;
+            var screen = smartaDevice.userData.screen;
+            var leds = smartaDevice.userData.leds || [];
 
-            // Default: semua efek dimatikan
+            storyRuntime.actionStarted = true;
             if (beam) beam.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
-            particles.forEach(function(p) { p.visible = false; });
-            if (pl) pl.material.emissiveIntensity = 0.4;
-            if (mc) mc.material.emissiveIntensity = 0.4;
+            particles.forEach(function(p) { p.visible = false; p.userData.progress = Math.random() * 0.22; });
+            if (pl) pl.material.emissiveIntensity = 0.38;
+            if (mc) mc.material.emissiveIntensity = 0.38;
+            if (screen) screen.material.emissiveIntensity = 0.42;
+            leds.forEach(function(led, i) { led.material.opacity = i === 0 ? 0.42 : 0.18; });
 
             switch (act) {
+                case 'meet':
+                    if (screen) screen.material.emissiveIntensity = 1.0;
+                    leds.forEach(function(led) { led.material.opacity = 0.85; });
+                    showStatus('SMARTA aktif — mengenali tiga jalur sensor', '#a5b4fc');
+                    break;
+                case 'wide':
+                    showStatus('Kamar tenang — SMARTA siap memantau', '#cbd5e1');
+                    break;
+                case 'person':
+                    showStatus('User tertidur — monitoring dimulai', '#c4b5fd');
+                    break;
                 case 'pir':
                     if (beam) beam.visible = true;
                     particles.forEach(function(p) { if (p.userData.type === 'PIR') p.visible = true; });
-                    if (pl) pl.material.emissiveIntensity = 1.4;
-                    showStatus('📡 PIR mendeteksi gerakan tubuh', '#818cf8');
+                    if (pl) pl.material.emissiveIntensity = 1.45;
+                    showStatus('PIR mengunci gerakan kecil pada dada', '#a5b4fc');
                     break;
                 case 'mic':
                     if (waves) waves.forEach(function(w) { w.visible = true; });
                     particles.forEach(function(p) { if (p.userData.type === 'MIC') p.visible = true; });
-                    if (mc) mc.material.emissiveIntensity = 1.4;
-                    showStatus('🎙️ Mic menangkap noise & snoring', '#ec4899');
+                    if (mc) mc.material.emissiveIntensity = 1.45;
+                    showStatus('Mic menangkap pola suara dari sekitar kepala', '#f9a8d4');
                     break;
                 case 'esp32':
-                    if (pl) pl.material.emissiveIntensity = 0.8;
-                    if (mc) mc.material.emissiveIntensity = 0.8;
-                    showStatus('🧠 ESP32 memproses data tidur', '#10b981');
+                    if (pl) pl.material.emissiveIntensity = 0.82;
+                    if (mc) mc.material.emissiveIntensity = 0.82;
+                    if (screen) screen.material.emissiveIntensity = 1.15;
+                    showStatus('ESP32 merangkum data secara lokal', '#86efac');
                     break;
                 case 'cloud':
-                    showStatus('☁️ Data tidur diunggah ke cloud', '#38bdf8');
+                    particles.forEach(function(p) { p.visible = true; p.userData.cloud = true; });
+                    if (cloudNode) cloudNode.visible = true;
+                    if (screen) screen.material.emissiveIntensity = 1.05;
+                    showStatus('Paket data naik melalui WiFi ke server aman', '#7dd3fc');
                     break;
                 case 'stats':
                     var ov = document.getElementById('stats-overlay');
                     ov.classList.add('show');
-                    showStatus('📊 Analisis tidur selesai', '#10b981');
-                    break;
-                case 'person':
-                    showStatus('😴 User mulai tertidur', '#a78bfa');
+                    showStatus('Analisis tidur selesai', '#86efac');
                     break;
                 default:
-                    showStatus('SMARTA — intelligent sleep monitoring', '#818cf8');
+                    showStatus('SMARTA — intelligent sleep monitoring', '#a5b4fc');
             }
         }
 
@@ -827,6 +886,7 @@
             ov.classList.remove('show');
             var beam = smartaDevice && smartaDevice.userData.beam;
             var waves = smartaDevice && smartaDevice.userData.soundWaves;
+            if (cloudNode) cloudNode.visible = false;
             // Default: semua efek MATI, baru dinyalakan sesuai aksi scene
             if (beam) beam.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
@@ -834,8 +894,13 @@
             if (smartaDevice) {
                 var pl = smartaDevice.userData.pirLens;
                 var mc = smartaDevice.userData.mic;
-                if (pl) pl.material.emissiveIntensity = 0.4;
-                if (mc) mc.material.emissiveIntensity = 0.4;
+                var screen = smartaDevice.userData.screen;
+                var leds = smartaDevice.userData.leds || [];
+                if (pl) pl.material.emissiveIntensity = 0.38;
+                if (mc) mc.material.emissiveIntensity = 0.38;
+                if (screen) screen.material.emissiveIntensity = 0.42;
+                leds.forEach(function(led, i) { led.material.opacity = i === 0 ? 0.42 : 0.18; });
+                particles.forEach(function(p) { p.userData.cloud = false; });
             }
         }
 
@@ -843,32 +908,35 @@
             index = Math.max(0, Math.min(index, storyScenes.length - 1));
             currentScene = index;
             var scene = storyScenes[currentScene];
+            storyRuntime.startedAt = clock.getElapsedTime();
+            storyRuntime.actionStarted = false;
             clearSceneEffects();
             updateSceneUI(scene);
-            animateCameraTo(scene.cam.p, scene.cam.t, 2000);
+            animateCameraTo(scene.cam.p, scene.cam.t, Math.max(1200, scene.settle + 500));
             clearTimeout(effectTimer);
-            effectTimer = setTimeout(function() { executeSceneAction(scene.act); }, 1900);
+            effectTimer = setTimeout(function() { executeSceneAction(scene.act); }, scene.settle);
 
             clearTimeout(sceneTimer);
             if (isPlaying) {
                 sceneTimer = setTimeout(function() {
                     if (currentScene < storyScenes.length - 1) transitionToScene(currentScene + 1);
                     else setPlaying(false);
-                }, scene.dur + 2000);
+                }, scene.dur + scene.settle);
             }
         }
 
         function jumpToScene(index) {
-            // Saat playing: segera pindah scene
             index = Math.max(0, Math.min(index, storyScenes.length - 1));
             currentScene = index;
             var scene = storyScenes[currentScene];
+            storyRuntime.startedAt = clock.getElapsedTime();
+            storyRuntime.actionStarted = true;
             clearSceneEffects();
             updateSceneUI(scene);
             camera.position.set(scene.cam.p[0], scene.cam.p[1], scene.cam.p[2]);
             controls.target.set(scene.cam.t[0], scene.cam.t[1], scene.cam.t[2]);
             controls.update();
-            clearTimeout(effectTimer);  // batalkan efek tertunda dari scene sebelumnya
+            clearTimeout(effectTimer);
             executeSceneAction(scene.act);
 
             clearTimeout(sceneTimer);
@@ -909,7 +977,7 @@
                 if (currentScene > 0) { if (isPlaying) transitionToScene(currentScene - 1); else jumpToScene(currentScene - 1); }
             });
             document.getElementById('btn-reset').addEventListener('click', function() {
-                animateCameraTo([4, 4.5, 9], [0, 1.5, 0], 1500);
+                animateCameraTo([4, 4.5, 9], [0, 1.5, 0], 1700, 0.25);
                 showStatus('⟳ Kamera direset', '#94a3b8');
             });
             transitionToScene(0);
@@ -920,63 +988,89 @@
             var time = clock.getElapsedTime();
             controls.update();
 
-            // Kamera transition
+            // Camera choreography: easing + arc vertikal kecil, tanpa akumulasi posisi.
             if (camAnim) {
                 var t = Math.min((time - camAnim.t0) / camAnim.dur, 1);
                 var e = easeInOutCubic(t);
-                camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, e);
-                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, e);
+                var nextCameraPos = new THREE.Vector3().lerpVectors(camAnim.startPos, camAnim.endPos, e);
+                nextCameraPos.y += Math.sin(t * Math.PI) * camAnim.arc;
+                camera.position.copy(nextCameraPos);
+                var targetE = easeOutQuint(t);
+                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, targetE);
                 if (t >= 1) camAnim = null;
             }
 
             if (smartaDevice) {
-                smartaDevice.position.y = 1.56 + Math.sin(time * 0.8) * 0.03;
+                var activeAction = storyScenes[currentScene] && storyScenes[currentScene].act;
+                smartaDevice.position.y = smartaBaseY + (prefersReducedMotion ? 0 : Math.sin(time * 0.55) * 0.014);
                 var pl = smartaDevice.userData.pirLens;
                 var mc = smartaDevice.userData.mic;
-                if (pl) { var s1 = 1 + Math.sin(time * 2.2) * 0.15; pl.scale.setScalar(s1); pl.material.emissiveIntensity = 0.6 + Math.sin(time * 2.2) * 0.4; }
-                if (mc) { var s2 = 1 + Math.sin(time * 1.7 + 1) * 0.12; mc.scale.setScalar(s2); mc.material.emissiveIntensity = 0.5 + Math.sin(time * 1.7) * 0.4; }
-                if (smartaDevice.userData.beam) smartaDevice.userData.beam.material.opacity = 0.12 + Math.sin(time * 1.5) * 0.08;
+                var screen = smartaDevice.userData.screen;
+                var leds = smartaDevice.userData.leds || [];
+                var sensorPulse = storyRuntime.actionStarted && activeAction === 'pir' ? 0.5 + (Math.sin(time * 3.1) * 0.5 + 0.5) * 0.9 : 0.38;
+                var micPulse = storyRuntime.actionStarted && activeAction === 'mic' ? 0.5 + (Math.sin(time * 2.35 + 0.7) * 0.5 + 0.5) * 0.8 : 0.38;
+                if (pl) { pl.scale.setScalar(1 + (sensorPulse - 0.38) * 0.08); pl.material.emissiveIntensity = sensorPulse; }
+                if (mc) { mc.scale.setScalar(1 + (micPulse - 0.38) * 0.08); mc.material.emissiveIntensity = micPulse; }
+                if (screen && activeAction !== 'esp32' && activeAction !== 'cloud' && activeAction !== 'meet') screen.material.emissiveIntensity = 0.42;
+                if (leds.length) {
+                    var activeLed = activeAction === 'cloud' ? 2 : activeAction === 'esp32' ? 1 : 0;
+                    leds.forEach(function(led, i) {
+                        var base = i === activeLed ? 0.45 : 0.16;
+                        led.material.opacity = base + (i === activeLed ? Math.max(0, Math.sin(time * 1.8 + i)) * 0.35 : 0);
+                    });
+                }
+                if (smartaDevice.userData.beam) {
+                    smartaDevice.userData.beam.material.opacity = activeAction === 'pir' ? 0.09 + (Math.sin(time * 1.7) * 0.5 + 0.5) * 0.1 : 0.04;
+                }
+                if (cloudNode && cloudNode.visible) {
+                    cloudNode.rotation.z = Math.sin(time * 0.65) * 0.08;
+                    cloudNode.scale.setScalar(0.94 + (Math.sin(time * 1.45) * 0.5 + 0.5) * 0.1);
+                }
                 var waves = smartaDevice.userData.soundWaves;
                 if (waves) waves.forEach(function(w, i) {
-                    var r = 0.3 + ((time * 0.8 + i * 0.33) % 1) * 1.4;
-                    w.scale.setScalar(r);
-                    w.material.opacity = 0.5 * (1 - ((time * 0.8 + i * 0.33) % 1));
+                    var phase = (time * 0.42 + i * 0.23) % 1;
+                    w.scale.setScalar(0.58 + phase * 1.08);
+                    w.material.opacity = activeAction === 'mic' && w.visible ? 0.42 * (1 - phase) : 0;
                 });
             }
 
             if (person && person.userData.torso) {
-                // Nafas: dada mengembang (radial) + kepala terangkat sedikit
-                var br = 1 + Math.sin(time * 0.7) * 0.04;
-                person.userData.torso.scale.set(br, 1, br);
+                // Napas lambat dengan jeda mikro pada kepala dan leher, bukan wobble seragam.
+                var breath = prefersReducedMotion ? 0 : Math.sin(time * 0.34) * 0.5 + Math.sin(time * 0.17 + 1.1) * 0.12;
+                var br = 1 + breath * 0.035;
+                person.userData.torso.scale.set(br, 1, br * 0.985);
                 if (person.userData.head) {
-                    person.userData.head.position.y = person.userData.headBaseY + Math.sin(time * 0.7) * 0.012;
+                    person.userData.head.position.y = person.userData.headBaseY + breath * 0.009;
+                    person.userData.head.rotation.y = breath * 0.018;
                 }
+                if (person.userData.neck) person.userData.neck.position.y = 1.14 + breath * 0.006;
             }
 
             particles.forEach(function(p) {
                 var ud = p.userData;
                 if (!smartaDevice || !person || !person.userData.torso) return;
-                var origin, target;
-                if (ud.type === 'PIR') {
-                    origin = person.userData.torso;              // gerakan tubuh terdeteksi PIR
-                    target = smartaDevice.userData.pirLens;
-                } else {
-                    origin = person.userData.head;               // suara/snoring dari kepala
-                    target = smartaDevice.userData.mic;
-                }
-                var o = new THREE.Vector3(), t = new THREE.Vector3();
-                origin.getWorldPosition(o);
-                target.getWorldPosition(t);
-                // Aliran kontinu person → device, tanpa teleport acak
                 ud.progress += ud.speed;
                 if (ud.progress >= 1) ud.progress = 0;
                 var e = ud.progress;
-                p.position.lerpVectors(o, t, e);
-                // Goyangan halus di tengah perjalanan, fade in/out di ujung
+                var o = new THREE.Vector3();
+                var target = new THREE.Vector3();
+                if (ud.cloud) {
+                    smartaDevice.getWorldPosition(o);
+                    if (cloudNode) cloudNode.getWorldPosition(target);
+                    else target.set(o.x + ud.lane * 2.5, o.y + 3.1, o.z - 1.7);
+                    target.x += ud.lane;
+                    p.position.lerpVectors(o, target, e);
+                } else {
+                    var origin = ud.type === 'PIR' ? person.userData.torso : person.userData.head;
+                    var sensor = ud.type === 'PIR' ? smartaDevice.userData.pirLens : smartaDevice.userData.mic;
+                    origin.getWorldPosition(o);
+                    sensor.getWorldPosition(target);
+                    p.position.lerpVectors(o, target, e);
+                }
                 var sway = Math.sin(e * Math.PI);
-                p.position.x += Math.sin(time * 3 + ud.wobble) * 0.04 * sway;
-                p.position.y += Math.cos(time * 2.5 + ud.wobble) * 0.04 * sway;
-                p.material.opacity = 0.9 * sway;
+                p.position.x += Math.sin(time * 1.8 + ud.wobble) * (ud.cloud ? 0.035 : 0.025) * sway;
+                p.position.y += Math.cos(time * 1.5 + ud.wobble) * (ud.cloud ? 0.04 : 0.025) * sway;
+                p.material.opacity = (ud.cloud ? 0.72 : 0.82) * sway;
             });
 
             renderer.render(scene, camera);
