@@ -330,8 +330,8 @@
             { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', narration:'Keempat sensor bekerja bersama: gerakan, suara, cahaya kamar, dan suhu tubuh memberi konteks yang lebih lengkap.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
             { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', narration:'Pada kondisi normal, user tetap tidur dan SMARTA memantau area kasur secara pasif.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
             { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Satu beam PIR mengarah ke torso user, sementara KY-037 memantau suara di area kepala.', stage:'sensing', cam:{p:[2.24,2.34,4.48], t:[-0.62,1.32,0.18]}, dur:6800, settle:1500, act:'event' },
-            { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', narration:'Event belum menjadi keputusan. Semua pembacaan dikirim ke ESP32 agar dapat dibandingkan dan diproses bersama.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Sekarang fokus pada board ESP32: pin header, chip MCU, dan indikator proses menunjukkan bagaimana empat pembacaan diringkas menjadi alert.', stage:'processing', cam:{p:[-1.72,1.76,2.62], t:[-2.62,1.28,1.62]}, dur:6400, settle:1450, act:'esp32' },
+            { id:5, title:'Sensor Mengirim Pembacaan', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim data ke chip ESP32.', narration:'Sekarang lihat alur datanya: empat sensor mengirim pembacaan masing-masing menuju chip ESP32. Belum ada alert—ini masih tahap pengumpulan data.', stage:'sensing', cam:{p:[-0.42,1.92,-1.42], t:[-2.0,1.18,1.08]}, dur:6800, settle:1500, act:'readings' },
+            { id:6, title:'ESP32 Memproses Data', desc:'Chip MCU menggabungkan empat pembacaan sebelum menentukan alert.', narration:'Setelah semua data masuk, fokus berpindah ke board ESP32. Chip MCU memeriksa pembacaan sensor dan indikator hijau menunjukkan proses keputusan sedang berjalan.', stage:'processing', cam:{p:[-1.38,1.68,2.34], t:[-2.58,1.08,1.62]}, dur:6800, settle:1550, act:'esp32' },
             { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
             { id:9, title:'Demo Selesai', desc:'Kamera mendekati smartphone agar hasil analisis dapat dibaca dengan jelas.', narration:'Sebagai penutup, kamera melakukan zoom ke dashboard. Setelah layar terbaca, laporan Sleep Analysis Complete muncul.', stage:'complete', cam:{p:[1.9,2.62,4.25], t:[1.02,1.58,2.22]}, dur:7200, settle:1600, act:'stats' }
@@ -920,7 +920,8 @@
                 { source: 'mlx', color: 0xf97316 }
             ];
             sensorLinkDefs.forEach(function(def) {
-                var link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: def.color, transparent: true, opacity: 0.32, blending: THREE.NormalBlending }));
+                var link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: def.color, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false }));
+                link.renderOrder = 9;
                 link.userData.source = def.source;
                 link.visible = false;
                 sensorLinks.push(link);
@@ -1262,16 +1263,20 @@
                     showStatus('SIMULASI EVENT — gerakan jatuh memicu PIR dan KY-037', '#fb7185');
                     break;
                 case 'readings':
-                    if (pirCoverageField) pirCoverageField.visible = true;
+                    if (person) person.visible = false;
                     labels.forEach(function(label) { label.visible = true; });
+                    sensorLinks.forEach(function(link) { link.visible = true; });
                     particles.forEach(function(p) { p.visible = true; p.userData.cloud = false; p.userData.processing = false; });
-                    if (beam) beam.visible = true;
-                    if (smartaDevice.userData.beamCore) smartaDevice.userData.beamCore.visible = true;
-                    if (smartaDevice.userData.beamTarget) smartaDevice.userData.beamTarget.visible = true;
-                    if (waves) waves.forEach(function(w) { w.visible = true; });
-                    showStatus('Gerak · suara · cahaya · suhu masuk ke ESP32', '#fbbf24');
+                    if (beam) beam.visible = false;
+                    if (smartaDevice.userData.beamCore) smartaDevice.userData.beamCore.visible = false;
+                    if (smartaDevice.userData.beamTarget) smartaDevice.userData.beamTarget.visible = false;
+                    if (waves) waves.forEach(function(w) { w.visible = false; });
+                    if (pirCoverageField) pirCoverageField.visible = false;
+                    showStatus('Empat pembacaan sensor mengalir menuju chip ESP32', '#fbbf24');
                     break;
                 case 'esp32':
+                    if (person) person.visible = false;
+                    sensorLinks.forEach(function(link) { link.visible = false; });
                     if (smartaDevice.userData.frontElements) smartaDevice.userData.frontElements.forEach(function(el) { el.visible = false; });
                     particles.forEach(function(p) { p.visible = true; p.userData.processing = true; });
                     processingBars.forEach(function(bar) { bar.material.opacity = 0.92; });
@@ -1337,6 +1342,7 @@
             if (smartaDevice && smartaDevice.userData.beamTarget) smartaDevice.userData.beamTarget.visible = false;
             if (waves) waves.forEach(function(w) { w.visible = false; });
             particles.forEach(function(p) { p.visible = false; });
+            if (person) person.visible = true;
             if (smartaDevice) {
                 var pl = smartaDevice.userData.pirLens;
                 var mc = smartaDevice.userData.mic;
@@ -1566,7 +1572,7 @@
                         source.getWorldPosition(sourcePoint);
                         link.geometry.setFromPoints([sourcePoint, chipTarget]);
                         var linkPulse = Math.sin(time * 2.2 + idx * 0.55) * 0.5 + 0.5;
-                        link.material.opacity = processStage === 'sensing' ? 0.18 + linkPulse * 0.2 : processStage === 'processing' ? 0.32 + linkPulse * 0.2 : 0.08;
+                        link.material.opacity = processStage === 'sensing' ? 0.58 + linkPulse * 0.3 : processStage === 'processing' ? 0.42 + linkPulse * 0.24 : 0.08;
                     });
                 }
                 if (uploadLink && cloudNode && smartaDevice) {
