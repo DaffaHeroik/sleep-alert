@@ -321,7 +321,7 @@
         var dotEls = [];
         var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             var storyRuntime = { startedAt: 0, actionStarted: false };
-            var phoneMotion = { active: false, startedAt: 0, start: new THREE.Vector3(1.65, 1.12, 3.15), end: new THREE.Vector3(1.28, 1.58, 2.48), startScale: 0.16, endScale: 0.42 };
+            var phoneMotion = { active: false, startedAt: 0, start: new THREE.Vector3(1.65, 1.12, 3.15), end: new THREE.Vector3(1.28, 1.58, 2.48), startScale: 0.16, endScale: 0.55 };
             var finaleZoom = { active: false, startedAt: 0, duration: 2.8, fromPos: new THREE.Vector3(), fromTarget: new THREE.Vector3(), toPos: new THREE.Vector3(), toTarget: new THREE.Vector3() };
             var smartaBaseY = 1.56;
 
@@ -329,12 +329,12 @@
             { id:1, title:'Apa itu SMARTA?', desc:'SMARTA adalah perangkat pemantau tidur berbasis ESP32 yang mengubah kejadian di kamar menjadi informasi.', narration:'Pertama, kenalkan SMARTA sebagai alat yang membaca kondisi user lalu mengirimkan hasilnya sebagai alert.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
             { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', narration:'Keempat sensor bekerja bersama: gerakan, suara, cahaya kamar, dan suhu tubuh memberi konteks yang lebih lengkap.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
             { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', narration:'Pada kondisi normal, user tetap tidur dan SMARTA memantau area kasur secara pasif.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
-            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Beam PIR terlihat menyapu area tidur dan KY-037 ikut memantau suara.', stage:'sensing', cam:{p:[3.6,3.0,5.6], t:[-0.8,1.35,0.35]}, dur:6000, settle:1300, act:'event' },
+            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Beam PIR terlihat menyapu area tidur dan KY-037 ikut memantau suara.', stage:'sensing', cam:{p:[2.72,2.58,5.15], t:[-0.68,1.4,0.36]}, dur:6000, settle:1300, act:'event' },
             { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', narration:'Event belum menjadi keputusan. Semua pembacaan dikirim ke ESP32 agar dapat dibandingkan dan diproses bersama.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Perhatikan board hijau ESP32, pin header kuning, chip MCU hitam, dan tiga bar indikator yang menunjukkan proses keputusan.', stage:'processing', cam:{p:[-1.72,2.02,3.22], t:[-2.62,1.58,1.72]}, dur:6000, settle:1350, act:'esp32' },
+            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Perhatikan board hijau ESP32, pin header kuning, chip MCU hitam, dan tiga bar indikator yang menunjukkan proses keputusan.', stage:'processing', cam:{p:[-2.35,1.82,2.42], t:[-2.62,1.56,1.72]}, dur:6000, settle:1350, act:'esp32' },
             { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
-            { id:9, title:'Demo Selesai', desc:'Kamera mendekati smartphone agar hasil analisis dapat dibaca dengan jelas.', narration:'Sebagai penutup, kamera melakukan zoom ke dashboard. Setelah layar terbaca, laporan Sleep Analysis Complete muncul.', stage:'complete', cam:{p:[2.65,3.05,6.0], t:[0.95,1.58,2.16]}, dur:7200, settle:1600, act:'stats' }
+            { id:9, title:'Demo Selesai', desc:'Kamera mendekati smartphone agar hasil analisis dapat dibaca dengan jelas.', narration:'Sebagai penutup, kamera melakukan zoom ke dashboard. Setelah layar terbaca, laporan Sleep Analysis Complete muncul.', stage:'complete', cam:{p:[1.9,2.62,4.25], t:[1.02,1.58,2.22]}, dur:7200, settle:1600, act:'stats' }
         ];
 
         function showStatus(msg, color) {
@@ -851,7 +851,7 @@
             // Scanning beam PIR: tip dekat modul, cone melebar ke seluruh area kasur.
             var beamLength = 4.3;
             var beamGeo = new THREE.ConeGeometry(1.35, beamLength, 32, 1, true);
-            var beamMat = new THREE.MeshBasicMaterial({ color: 0x7785ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
+            var beamMat = new THREE.MeshBasicMaterial({ color: 0x8b82ff, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
             beam.position.set(-0.22, -0.15, 0.28 + beamLength * 0.5);
             beam.rotation.x = -Math.PI / 2;
@@ -1306,7 +1306,7 @@
                     finaleZoom.fromPos.copy(camera.position);
                     finaleZoom.fromTarget.copy(controls.target);
                     finaleZoom.toTarget.copy(phoneMotion.end);
-                    finaleZoom.toPos.set(phoneMotion.end.x + 0.92, phoneMotion.end.y + 0.5, phoneMotion.end.z + 1.02);
+                    finaleZoom.toPos.set(phoneMotion.end.x + 0.46, phoneMotion.end.y + 0.24, phoneMotion.end.z + 0.58);
                     showStatus('Kamera mendekati dashboard smartphone...', '#7dd3fc');
                     break;
                 default:
