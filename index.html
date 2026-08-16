@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sleep Alert - SMARTA Device</title>
+    <title>SMARTA — Sleep Monitoring</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -17,23 +17,43 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            text-align: left;
             z-index: 100;
-            background: linear-gradient(180deg, rgba(8,13,29,0.92), rgba(8,13,29,0.68));
-            padding: 13px 24px;
-            border-radius: 18px;
+            background: rgba(8,13,29,0.88);
+            padding: 10px 16px 10px 12px;
+            border-radius: 12px;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.12);
+            border: 1px solid rgba(148,163,184,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
             pointer-events: none;
         }
-        h1 {
-            font-size: 1.7rem;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 6px;
+        #info::before {
+            content: '';
+            width: 4px;
+            height: 30px;
+            flex: 0 0 4px;
+            border-radius: 99px;
+            background: #22d3ee;
+            box-shadow: 0 0 12px rgba(34,211,238,0.55);
         }
-        #hint { color: #94a3b8; font-size: 0.85rem; }
+        #info h1 {
+            font-size: 1.35rem;
+            line-height: 1;
+            letter-spacing: 0.16em;
+            font-weight: 800;
+            color: #e2e8f0;
+            margin: 0 0 4px;
+        }
+        #info .brand-line {
+            color: #7dd3fc;
+            font-size: 0.58rem;
+            letter-spacing: 0.1em;
+            line-height: 1;
+            text-transform: uppercase;
+        }
         #process-rail {
             position: fixed;
             top: 98px;
@@ -195,9 +215,9 @@
         #controls button:hover { background: rgba(102,126,234,0.3); transform: translateY(-2px); }
         #controls button:active { transform: translateY(0); }
         @media (max-width: 720px) {
-            #info { top: 12px; padding: 10px 15px; }
-            #info h1 { font-size: 1.18rem; }
-            #hint { font-size: 0.7rem; }
+            #info { top: 12px; padding: 9px 13px 9px 10px; }
+            #info h1 { font-size: 1.05rem; }
+            #info .brand-line { font-size: 0.48rem; }
             #process-rail { top: 78px; padding-inline: 7px; }
             #process-rail .process-step { min-width: 42px; font-size: 0.52rem; }
             #process-rail .process-step:nth-child(2) { display: none; }
@@ -231,8 +251,11 @@
 </head>
 <body>
     <div id="loading"><div class="spinner"></div><div style="color:#9ca3af">Memuat kamar tidur...</div></div>
-    <div id="info">
-        <h1>SMARTA</h1>
+    <div id="info" aria-label="SMARTA — Smart Sleep Disruption Alert">
+        <div class="brand-copy">
+            <h1>SMARTA</h1>
+            <div class="brand-line">Smart Sleep Disruption Alert</div>
+        </div>
     </div>
         <div id="process-rail" aria-label="Alur proses SMARTA">
         <div class="rail-track"></div><div class="rail-progress" id="rail-progress"></div>
