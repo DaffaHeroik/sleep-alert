@@ -329,9 +329,9 @@
             { id:1, title:'Apa itu SMARTA?', desc:'SMARTA adalah perangkat pemantau tidur berbasis ESP32 yang mengubah kejadian di kamar menjadi informasi.', narration:'Pertama, kenalkan SMARTA sebagai alat yang membaca kondisi user lalu mengirimkan hasilnya sebagai alert.', stage:'setup', cam:{p:[1.7,2.75,-1.35], t:[-2.35,1.52,1.22]}, dur:5600, settle:1500, act:'meet' },
             { id:2, title:'Kenali 4 Sensor', desc:'PIR membaca gerakan, KY-037 membaca suara, LDR membaca cahaya, dan MLX90614 membaca suhu tubuh.', narration:'Keempat sensor bekerja bersama: gerakan, suara, cahaya kamar, dan suhu tubuh memberi konteks yang lebih lengkap.', stage:'sensing', cam:{p:[1.25,2.65,-1.25], t:[-2.25,1.52,1.18]}, dur:6500, settle:1400, act:'sensors' },
             { id:3, title:'User Mulai Tertidur', desc:'SMARTA mengamati area tidur tanpa mengganggu user.', narration:'Pada kondisi normal, user tetap tidur dan SMARTA memantau area kasur secara pasif.', stage:'sensing', cam:{p:[3.8,2.9,5.2], t:[-0.2,1.35,0.15]}, dur:5600, settle:1300, act:'person' },
-            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Beam PIR terlihat menyapu area tidur dan KY-037 ikut memantau suara.', stage:'sensing', cam:{p:[2.72,2.58,5.15], t:[-0.68,1.4,0.36]}, dur:6000, settle:1300, act:'event' },
+            { id:4, title:'Simulasi: Gerakan Jatuh', desc:'Kita simulasikan gerakan tidak normal di area tidur. SMARTA memicu event untuk diperiksa.', narration:'Sekarang kita buat satu kejadian contoh: user bergeser mendadak. Satu beam PIR mengarah ke torso user, sementara KY-037 memantau suara di area kepala.', stage:'sensing', cam:{p:[2.24,2.34,4.48], t:[-0.62,1.32,0.18]}, dur:6800, settle:1500, act:'event' },
             { id:5, title:'Sensor Menangkap Kejadian', desc:'PIR, KY-037, LDR, dan MLX90614 mengirim pembacaan ke ESP32.', narration:'Event belum menjadi keputusan. Semua pembacaan dikirim ke ESP32 agar dapat dibandingkan dan diproses bersama.', stage:'sensing', cam:{p:[1.35,2.72,-2.85], t:[-0.9,1.24,-0.42]}, dur:6400, settle:1450, act:'readings' },
-            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Perhatikan board hijau ESP32, pin header kuning, chip MCU hitam, dan tiga bar indikator yang menunjukkan proses keputusan.', stage:'processing', cam:{p:[-2.35,1.82,2.42], t:[-2.62,1.56,1.72]}, dur:6000, settle:1350, act:'esp32' },
+            { id:6, title:'ESP32 Menentukan Alert', desc:'ESP32 menggabungkan pembacaan lokal untuk membedakan kondisi normal dan event.', narration:'Sekarang fokus pada board ESP32: pin header, chip MCU, dan indikator proses menunjukkan bagaimana empat pembacaan diringkas menjadi alert.', stage:'processing', cam:{p:[-1.72,1.76,2.62], t:[-2.62,1.28,1.62]}, dur:6400, settle:1450, act:'esp32' },
             { id:7, title:'Wi-Fi Mengirim Alert', desc:'Setelah diproses, ringkasan event dikirim ke smartphone melalui Wi-Fi.', narration:'Setelah diproses, ESP32 mengirim ringkasan event melalui Wi-Fi. Packet bergerak dari alat menuju smartphone.', stage:'uploading', cam:{p:[0.2,2.9,5.0], t:[-1.1,1.7,1.2]}, dur:6200, settle:1500, act:'cloud' },
             { id:8, title:'Smartphone Menerima Alert', desc:'Dashboard menampilkan grafik sensor dan status kejadian untuk pengguna.', narration:'Di smartphone, data diterjemahkan menjadi dashboard yang mudah dibaca: sensor, status event, dan ringkasan monitoring.', stage:'complete', cam:{p:[3.35,2.85,5.7], t:[0.85,1.62,2.05]}, dur:6400, settle:1450, act:'report' },
             { id:9, title:'Demo Selesai', desc:'Kamera mendekati smartphone agar hasil analisis dapat dibaca dengan jelas.', narration:'Sebagai penutup, kamera melakukan zoom ke dashboard. Setelah layar terbaca, laporan Sleep Analysis Complete muncul.', stage:'complete', cam:{p:[1.9,2.62,4.25], t:[1.02,1.58,2.22]}, dur:7200, settle:1600, act:'stats' }
@@ -638,6 +638,8 @@
             var handR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), skin);
             handR.position.set(0.8, 1.38, 0.15);
             person.add(handR);
+            person.userData.eventParts = [armL, armR, handL, handR];
+            person.userData.eventPartBase = [armL, armR, handL, handR].map(function(part) { return { position: part.position.clone(), rotationZ: part.rotation.z }; });
 
             scene.add(person);
             addInteractable(person, 'User (Tidur)', 'Orang tidur di kasur, dipantau sensor SMARTA.', function() {
@@ -749,6 +751,7 @@
             smile.rotation.z = Math.PI;
             smile.position.set(0, 0.26, 0.37);
             smartaDevice.add(smile);
+            smartaDevice.userData.frontElements = [casing, faceBorder, screen, eye1, eye2, smile];
 
             var espBoard = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.08, 0.44), new THREE.MeshStandardMaterial({ color: 0x047857, emissive: 0x047857, emissiveIntensity: 0.42, roughness: 0.52, metalness: 0.18 }));
             espBoard.position.y = 0;
@@ -774,12 +777,12 @@
             smartaDevice.add(chip);
             smartaDevice.userData.chip = chip;
             var boardLabel = createSensorLabel('ESP32 · CONTROLLER', '#34d399');
-            boardLabel.position.set(-0.92, 0.56, 0.34);
-            boardLabel.scale.set(0.42, 0.12, 1);
+            boardLabel.position.set(-0.56, 0.04, 0.34);
+            boardLabel.scale.set(0.28, 0.08, 1);
             smartaDevice.add(boardLabel);
             var chipLabel = createSensorLabel('MCU · PROCESSING', '#a7f3d0');
-            chipLabel.position.set(0.76, 0.28, 0.34);
-            chipLabel.scale.set(0.38, 0.1, 1);
+            chipLabel.position.set(0.46, 0.22, 0.34);
+            chipLabel.scale.set(0.28, 0.075, 1);
             smartaDevice.add(chipLabel);
             smartaDevice.userData.espDetails = [boardLabel, chipLabel];
             for (var barIndex = 0; barIndex < 3; barIndex++) {
@@ -850,7 +853,7 @@
 
             // Scanning beam PIR: tip dekat modul, cone melebar ke seluruh area kasur.
             var beamLength = 4.3;
-            var beamGeo = new THREE.ConeGeometry(1.35, beamLength, 32, 1, true);
+            var beamGeo = new THREE.ConeGeometry(0.82, beamLength, 32, 1, true);
             var beamMat = new THREE.MeshBasicMaterial({ color: 0x8b82ff, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false });
             var beam = new THREE.Mesh(beamGeo, beamMat);
             beam.position.set(-0.22, -0.15, 0.28 + beamLength * 0.5);
@@ -875,14 +878,14 @@
 
             // Sound waves KY-037: medan radial elips yang membesar di atas area tidur.
             var soundWaves = [];
-            for (var j = 0; j < 4; j++) {
+            for (var j = 0; j < 3; j++) {
                 var ring = new THREE.Mesh(
                     new THREE.RingGeometry(1.15, 1.24, 32),
                     new THREE.MeshBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.16 - j * 0.025, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
                 );
                 ring.position.set(0.22, -0.15, 0.38);
                 ring.rotation.x = Math.PI / 2;
-                ring.scale.set(0.48 + j * 0.11, 0.48 + j * 0.11, 1);
+                ring.scale.set(0.34 + j * 0.1, 0.34 + j * 0.1, 1);
                 smartaDevice.add(ring);
                 soundWaves.push(ring);
             }
@@ -892,11 +895,11 @@
             pirCoverageField = new THREE.Group();
             var coverageDisk = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.018, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
             coverageDisk.rotation.x = -Math.PI / 2;
-            coverageDisk.scale.set(1.55, 2.02, 1);
+            coverageDisk.scale.set(1.22, 1.62, 1);
             pirCoverageField.add(coverageDisk);
             var coverageRing = new THREE.Mesh(new THREE.RingGeometry(0.98, 1.01, 64), new THREE.MeshBasicMaterial({ color: 0xa5b4fc, transparent: true, opacity: 0.09, side: THREE.DoubleSide, depthWrite: false }));
             coverageRing.rotation.x = -Math.PI / 2;
-            coverageRing.scale.set(1.55, 2.02, 1);
+            coverageRing.scale.set(1.22, 1.62, 1);
             pirCoverageField.add(coverageRing);
             pirCoverageField.position.set(0, 1.38, 0.12);
             pirCoverageField.visible = false;
@@ -1269,6 +1272,7 @@
                     showStatus('Gerak · suara · cahaya · suhu masuk ke ESP32', '#fbbf24');
                     break;
                 case 'esp32':
+                    if (smartaDevice.userData.frontElements) smartaDevice.userData.frontElements.forEach(function(el) { el.visible = false; });
                     particles.forEach(function(p) { p.visible = true; p.userData.processing = true; });
                     processingBars.forEach(function(bar) { bar.material.opacity = 0.92; });
                     if (smartaDevice.userData.espDetails) smartaDevice.userData.espDetails.forEach(function(detail) { detail.visible = true; });
@@ -1347,6 +1351,7 @@
                 if (mlx) mlx.material.emissiveIntensity = 0.38;
                 if (screen) screen.material.emissiveIntensity = 0.42;
                 if (smartaDevice.userData.espDetails) smartaDevice.userData.espDetails.forEach(function(detail) { detail.visible = false; });
+                if (smartaDevice.userData.frontElements) smartaDevice.userData.frontElements.forEach(function(el) { el.visible = true; });
                 labels.forEach(function(label) { label.visible = false; });
                 leds.forEach(function(led, i) { led.material.opacity = i === 0 ? 0.42 : 0.18; });
                 particles.forEach(function(p) { p.userData.cloud = false; });
@@ -1581,9 +1586,9 @@
                 var waves = smartaDevice.userData.soundWaves;
                 if (waves) waves.forEach(function(w, i) {
                     var phase = (time * 0.42 + i * 0.23) % 1;
-                    var waveScale = 0.8 + phase * 3.7;
+                    var waveScale = 0.7 + phase * 2.05;
                     w.scale.set(waveScale * 0.86, waveScale * 1.12, 1);
-                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event') && w.visible ? 0.46 * (1 - phase) : 0;
+                    w.material.opacity = (activeAction === 'person' || activeAction === 'sensors' || activeAction === 'readings' || activeAction === 'event') && w.visible ? 0.24 * (1 - phase) : 0;
                 });
             }
 
@@ -1605,6 +1610,15 @@
                 if (person.userData.head) {
                     person.userData.head.position.x = person.userData.headBaseX + eventKick * 0.1;
                     person.userData.head.rotation.z = eventKick * -0.16;
+                }
+                if (person.userData.eventParts && person.userData.eventPartBase) {
+                    person.userData.eventParts.forEach(function(part, i) {
+                        var base = person.userData.eventPartBase[i];
+                        part.position.copy(base.position);
+                        part.position.x += eventKick * (i < 2 ? 0.08 : 0.1);
+                        part.position.z += eventKick * (i % 2 === 0 ? -0.05 : 0.05);
+                        part.rotation.z = base.rotationZ + eventKick * (i % 2 === 0 ? -0.22 : 0.22);
+                    });
                 }
             }
 
